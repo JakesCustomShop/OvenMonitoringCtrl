@@ -71,7 +71,7 @@ def stopListening():
 def update_row(table, row_index, new_values):
 	if (debug):
 		print("Updating Table")
-	table.item(table.get_children()[row_index], values=list(new_values))
+	table.item(table.get_children()[row_index-1], values=list(new_values))
 
 
 
@@ -89,14 +89,14 @@ def build_table(masterframe):
 	
 	#build the table columns
 	table.column('ovenid', width=50)
-	table.heading('ovenid', text='Oven')
+	table.heading('ovenid', text='Transmitter')
 	table.column('count', width=50)
 	table.heading('count', text='Sample #')
 	for num in range(1,9):
 		table.column('temp{}'.format(num),width=50)
-		table.heading('temp{}'.format(num), text='RTD {}'.format(num))
+		table.heading('temp{}'.format(num), text='Temp {}'.format(num))
 
 	# Insert some data into the table
-	data = [('John', '25'), ('Alice', '30'), ('Bob', '35'),('Bob', '35'),('Bob', '35'),('Bob', '35'),('Bob', '35')]
+	data = [(' ', ' '), (' ', ' '), (' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' ')]
 	for item in data:
 		table.insert('', 'end', values=item)
