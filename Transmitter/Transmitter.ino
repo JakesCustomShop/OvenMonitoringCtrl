@@ -24,6 +24,7 @@ TODO:
 */
 
 
+#include "Timer.h"    //Custom Header and C++ file for the Timing System
 #include <esp_now.h>
 #include <WiFi.h>
 #include "SM_RTD.h"
@@ -46,12 +47,25 @@ bool RTD_Check;   //Check to see if the Sequent RTD hat exists.
 typedef struct struct_message {
     int OvenID = 2; // must be unique for each sender board. 
     int Count = 0;    //Counts the number of transmissions.
-    //int BatchID;     //6-Digit identification number for each batch. 
     int Temps[8];   //Each element is a seperate chamber in the oven?
+    byte Status = 0;    //
+    //int BatchID;     //6-Digit identification number for each batch. 
 } struct_message;
 struct_message myData;        // Create a struct_message called myData
 
 esp_now_peer_info_t peerInfo; // Create peer interface
+
+
+
+//===Initilize timers for tracking cook time===//
+//A timer interval of 0 disables the timer
+Timer timer[6];
+int CookTime[6] = {5000,2000,0,0,0,0};
+//Create a timer for sending data packets every XX miliseconds z
+int DataIntervalTime = 5000; //Miliseconds (Change to 60000)
+Timer dataIntervalTimer;
+
+
 
 // callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -60,6 +74,7 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 }
  
 void setup() {
+   
   // Init Serial Monitor
   Serial.begin(115200);
   // Set device as a Wi-Fi Station
@@ -96,56 +111,73 @@ void setup() {
     RTD_Check=0;
   }
 
+  //===LCD SCREEN===//
   // set up the LCD's number of columns and rows:
   lcd.begin(20, 4);
   lcd.writeBl(20);
+
+  dataIntervalTimer.startTimer(DataIntervalTime); //Start a timer to send data packets at specified intervals.
+
 }
 
-  
 
+ 
 void loop() {
-  // Set values to send
-//  myData.OvenID[8] = {2,2,2,2,2,2,2,2};                      //Needs changed for each Transmitter
 
-  //For error checking.  
-  //Can implement a check on the reciever and PC to make sure no transmissions are lost.  
-  myData.Count ++;
-  if (debug) {
-    Serial.print(myData.OvenID);                      
-    Serial.print(", ");
-    Serial.print(myData.Count);                      
-    Serial.print(", ");
+  
+  //===TIMING SYSTEM===//
+  //Check each of 6 possible timers.
+  //Some Transmitters will have multiple Ovens attached.
+  for (int i = 1; i <= 6; i++) {
+    if (lcd.readButton(i)==1){//Check each of 6 buttons for a press.
+      delay(200);
+      timer[i].startTimer(CookTime[i-1]); //Start the timer 
+      //Serial.println("Timer 1 Started");
+    }
+    timer[i].checkTimer();
   }
 
-  for(int i = 0; i < 8; i++){
-    if (RTD_Check && !debug){
-      myData.Temps[i] = card.readTemp(i+1);   //card.readTemp wants 1 thru 8
-    }else
-      myData.Temps[i] = random(0,50);
+
+  //===DATA TRANSMITTION===//
+  if (dataIntervalTimer.checkTimer()==1) {   
+  
+    myData.Count ++;    //For error checking.  
+    //Can implement a check on the reciever and PC to make sure no transmissions are lost.  
+    if (debug) {
+      Serial.print(myData.OvenID);                      
+      Serial.print(", ");
+      Serial.print(myData.Count);                      
+      Serial.print(", ");
+    }
+    for(int i = 0; i < 8; i++){
+      if (RTD_Check && !debug)
+        myData.Temps[i] = card.readTemp(i+1);   //card.readTemp wants 1 thru 8
+      else
+        myData.Temps[i] = random(0,50);
+      Serial.print(myData.Temps[i]);
+      Serial.print(", ");
+    }
+    Serial.println();
+    // Send message via ESP-NOW
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
+  
+     
+    if (result == ESP_OK) {
+      Serial.println("Sent with success");
+    }
+    else {
+      Serial.println("Error sending the data");
+    }
     
-    Serial.print(myData.Temps[i]);
-    Serial.print(", ");
-  }
-  Serial.println();
-
+    dataIntervalTimer.startTimer(DataIntervalTime);   //Restart the timer
+  } 
+  
   //Display tempreture data to the SM LCD screen
   DisplayTemps(myData.Temps);
-
-  // Send message via ESP-NOW
-  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
-
-   
-  if (result == ESP_OK) {
-    Serial.println("Sent with success");
-  }
-  else {
-    Serial.println("Error sending the data");
-  }
-  delay(1000);
+  
+  //delay(2000);
   
 }
-
-
 
 
 /*
@@ -160,37 +192,37 @@ void DisplayTemps(int x[]) {
   lcd.setCursor(0, 0);
   lcd.print(Temp_Disp);
   lcd.setCursor(7, 0);
-  lcd.print("F");
+  lcd.print("C");
 
   Temp_Disp = String("2: ") + String(x[1]);
   lcd.setCursor(0, 1);
   lcd.print(Temp_Disp);
   lcd.setCursor(7, 1);
-  lcd.print("F");
+  lcd.print("C");
   
   Temp_Disp = String("3: ") + String(x[2]);
   lcd.setCursor(0, 2);
   lcd.print(Temp_Disp);
   lcd.setCursor(7, 2);
-  lcd.print("F");
+  lcd.print("C");
 
   Temp_Disp = String("4: ") + String(x[3]);
   lcd.setCursor(10, 0);
   lcd.print(Temp_Disp);
   lcd.setCursor(19, 0);
-  lcd.print("F");
+  lcd.print("C");
 
   Temp_Disp = String("5: ") + String(x[4]);
   lcd.setCursor(10, 1);
   lcd.print(Temp_Disp);
   lcd.setCursor(19, 1);
-  lcd.print("F");
+  lcd.print("C");
 
   Temp_Disp = String("6: ") + String(x[5]);
   lcd.setCursor(10, 2);
   lcd.print(Temp_Disp);
   lcd.setCursor(19, 2);
-  lcd.print("F");
+  lcd.print("C");
   
   return;
 }

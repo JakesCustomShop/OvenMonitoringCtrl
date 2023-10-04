@@ -21,8 +21,6 @@
 #include <WiFi.h>
 
 const byte numLEDs = 2;
-byte ledPin[numLEDs] = {2, 13};
-byte ledStatus[numLEDs] = {0, 0};
 
 const byte buffSize = 40;
 char inputBuffer[buffSize];
@@ -44,10 +42,11 @@ unsigned long replyToPCinterval = 3500;
 // Structure example to receive data
 // Must match the sender structure
 typedef struct struct_message {
-  int OvenID[8];     //Oven Identification Number
+  int OvenID;     //Oven Identification Number
   int Count = 0;    //Counts the number of transmissions.
-  //int BatchID;     //6-Digit identification number for each batch. 
   int Temps[8];       //Tempreture Data. Each element is a seperate chamber in the oven?
+  byte Status;
+  //int BatchID;     //6-Digit identification number for each batch. 
 }struct_message;
 // Create a struct_message called myData
 struct_message myData;
@@ -99,10 +98,11 @@ void OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomingData, int len) 
     Serial.print(myData.Temps[i]);  
     Serial.print(", ");   
 
-  }  
+  } 
+    Serial.print(myData.Status); 
     Serial.print(">");
     Serial.println();
-    //sampleCount[myData.OvenID-1]++;   //Increment the number of rows in the current struct. 
+    sampleCount[myData.OvenID-1]++;   //Increment the number of rows in the current struct. 
 
     
     
@@ -129,29 +129,17 @@ void setup() {
   Serial.begin(115200);
   //Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
-    // flash LEDs so we know we are alive
 
   //Init ESP-NOW
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
     return;
   }
-  
   // Once ESPNow is successfully Init, we will register for recv CB to
   // get recv packer info
-
-    
-  for (byte n = 0; n < numLEDs; n++) {
-     pinMode(ledPin[n], OUTPUT);
-     digitalWrite(ledPin[n], HIGH);
-  }
-  delay(500); // delay() is OK in setup as it only happens once
-  
-  for (byte n = 0; n < numLEDs; n++) {
-     digitalWrite(ledPin[n], LOW);
-  }
-    
-    // tell the PC we are ready
+     
+      
+  // tell the PC we are ready
   Serial.println("<Arduino is ready>");
   esp_now_register_recv_cb(OnDataRecv);
 }
@@ -169,16 +157,11 @@ void loop() {
 
 //=============
 
-void getDataFromPC() {
-
-    // receive data from PC and save it into inputBuffer
-    
+// receive data from PC and save it into inputBuffer
+void getDataFromPC() {  
   if(Serial.available() > 0) {
-
     char x = Serial.read();
-
       // the order of these IF clauses is significant
-      
     if (x == endMarker) {
       readInProgress = false; 
       newDataFromPC = true;
@@ -216,8 +199,6 @@ void parseData() {
   strtokIndx = strtok(NULL, ","); // this continues where the previous call left off
   ledStatus[1] = atoi(strtokIndx);
   
- 
-
 }
 
 //=============
