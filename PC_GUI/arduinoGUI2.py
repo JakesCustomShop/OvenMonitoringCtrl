@@ -2,11 +2,38 @@ from audioop import findfit
 import tkinter as tk
 from tkinter import *
 from tkinter import ttk
+from tkinter import END, filedialog  
 from turtle import width
 import arduinoCommsB as aC
 import atexit
 import numpy as np
+import configparser
+from pathlib import Path
 
+
+################################################
+global debug
+#debug = 0   #Debug mode off.
+debug = 1   #Print Statments
+#debug = 2  #skips datacollection
+
+
+################################################
+#System Defults:
+
+Path('C:/JCS/MoldReleaseTester').mkdir(parents=True, exist_ok=True)     # set the config file location
+config_location = Path('C:/JCS/MoldReleaseTester/param_config.ini')
+calibration_csv = "C:\JCS\MoldReleaseTester\calibration.csv"
+sample_count = 0     #counts each time the machine is ran.  Used for incrementing file names
+
+#Defualt information saved in the param_config.ini file.  If the .ini is missing or
+#Not written correctly, the old one will be overwritten with these values.
+dir_name = "C:/JCS/MoldReleaseTester"   #Save location for .csv data.
+file_name = 'TestData'      
+test_dur = 2                            #Test Durration in seconds
+sample_frequency = 100                  #Sample Frequency in Hz
+
+################################################
 
 
 #=========================
@@ -22,14 +49,10 @@ atexit.register(exit_handler)
 #===========================
 # global variables for this module
 
-ledAstatus = 0
-ledBstatus = 0
-servoPos = 10
-
 tkArd = tk.Tk()
 tkArd.minsize(width=320, height=170)
 tkArd.config(bg = 'yellow')
-tkArd.title("Arduino GUI Demo")
+tkArd.title("Oven Monitoring and Timing")
 
 	# the next line must come after  tkArd = Tk() so that a StringVar()
 	#   can be created in checkForData.
@@ -44,10 +67,43 @@ def setupView():
 	masterframe.pack()
 	
 	selectPort()
+
+#Read Configuration File
+def read_config():
+    global dir_name, file_name, test_dur, sample_frequency
+
+    config = configparser.RawConfigParser()
+    try:      #check if a config file exists & has the correct sections.
+        config.read(config_location)
+        dir_name = config.get('File', 'dir')
+        file_name = config.get('Parameters', 'file_name')
+        test_dur = config.getfloat('Parameters', 'test_dur')
+        sample_frequency = config.getfloat('Parameters', 'sample_frequency')
+        if debug: print("Successfully read param_config.ini")
+
+    except: #If config file has errors or DNE
+        config.clear()           #Delete the existing param_config.ini
+        config.add_section('File')
+        config.set('File', 'dir', dir_name)
+        config.add_section('Parameters')
+        config.set('Parameters', 'file_name', file_name)
+        config.set('Parameters', 'test_dur', test_dur)
+        config.set('Parameters', 'sample_frequency', sample_frequency)
+        config.write(open(config_location, "w"))
+        if debug: print("Deleted old and creating new param_config.ini file")
+
+
+# button to ask for directory to save output data to.
+def get_dir():
+    global dir_name
+    dir_name = filedialog.askdirectory(initialdir = "/",title = "Select Directory")
+    dir_name_label.set(dir_name)
+    masterframe.update_idletasks()
+
+
 		
 #======================
 # definition of screen to choose the Serial Port
-
 def selectPort():
 	global masterframe, radioVar
 	for child in masterframe.winfo_children():
@@ -70,41 +126,45 @@ def selectPort():
 
 
 
-#def update_row(table, row_index, new_values):
-#	print("Updating Table")
-#	table.item(table.get_children()[row_index], values=new_values)
+
 #======================
 # definition of main screen to control Arduino
-	
 def mainScreen():
-	global masterframe
+	global masterframe, dir_name_label
 	for child in masterframe.winfo_children():
 		child.destroy()
 		
-	labelA = tk.Label(masterframe, width = 5, height = 2, bg = "yellow") 
+
+	#Directory name label
+	################################################
+	read_config()
+	dir_name_label = StringVar()
+	dir_name_label.set(dir_name)
+	labelA = tk.Label(masterframe, textvariable = dir_name_label)
+	
+	dir_name_label.set(dir_name)
+	masterframe.update_idletasks()
+	################################################
+
+
+	browse_dir_button = tk.Button(text="Change File Save Directory", command=get_dir, bg='green', fg='white', font=('helvetica', 12, 'bold'))
+	browse_dir_button.pack();
+
+
+	#File save dir
+
+	#labelA = tk.Label(masterframe, width = 5, height = 2, bg = "yellow") 
 	labelB = tk.Label(masterframe, width = 5, bg = "yellow") 
 	labelC = tk.Label(masterframe, width = 5, bg = "yellow") 
-	
-	ledAbutton = tk.Button(masterframe, text="LedA", fg="white", bg="black")
-	ledAbutton.config(command = lambda: btnA(ledAbutton))
-	
-	ledBbutton = tk.Button(masterframe, text="LedB", fg="white", bg="black")
-	ledBbutton.config(command = lambda:  btnB(ledBbutton))
-	
-	slider = tk.Scale(masterframe, from_=10, to=170, orient=HORIZONTAL) # python 2.x use HORIZONTAL
-	slider.config(command = slide)
-	
 	labelD = tk.Label(masterframe, width = 5, bg = "yellow") 
-	labelE= tk.Label(masterframe, textvariable = cD.displayVal) 
+	labelE = tk.Label(masterframe, textvariable = cD.displayVal) 
 	
-	labelA.grid(row = 0)
-	ledAbutton.grid(row = 1)
-	labelB.grid(row = 1, column = 2)
-	ledBbutton.grid(row = 1, column = 3)
-	labelC.grid(row = 2)
-	slider.grid(row = 3, columnspan = 4)
-	labelD.grid(row = 4)
-	labelE.grid(row = 5, columnspan = 4)
+	
+	labelA.grid(row = 1)
+	labelB.grid(row = 2, column = 2)
+	labelC.grid(row = 3)
+	labelD.grid(row = 5)
+	labelE.grid(row = 6, columnspan = 4)
 
 
 	cD.build_table(masterframe)
