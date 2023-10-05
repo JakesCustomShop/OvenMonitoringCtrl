@@ -85,7 +85,7 @@ def build_table(masterframe):
 		columns= ('ovenid','count', 'temp1','temp2','temp3','temp4','temp5','temp6','temp7','temp8'),
 		show='headings')
 
-	table.grid(row=6,column=1,columnspan = 2)	#Required to show table in masterframe
+	table.grid(row=6,column=1,columnspan = 2, ipadx=10, ipady=50)	#Required to show table in masterframe
 	
 	#build the table columns
 	table.column('ovenid', width=50)
