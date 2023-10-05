@@ -1,8 +1,10 @@
 from audioop import findfit
+from doctest import master
 import tkinter as tk
 from tkinter import *
 from tkinter import ttk
-from tkinter import END, filedialog  
+from tkinter import END, filedialog
+from tkinter.tix import COLUMN  
 from turtle import width
 import arduinoCommsB as aC
 import atexit
@@ -51,7 +53,7 @@ atexit.register(exit_handler)
 
 tkArd = tk.Tk()
 tkArd.minsize(width=320, height=170)
-tkArd.config(bg = 'yellow')
+tkArd.config()
 tkArd.title("Oven Monitoring and Timing")
 
 	# the next line must come after  tkArd = Tk() so that a StringVar()
@@ -63,7 +65,7 @@ import arduinoCheckForData as cD # so we can refer to its variables
 
 def setupView():
 	global masterframe
-	masterframe = tk.Frame(bg = "yellow")
+	masterframe = tk.Frame()
 	masterframe.pack()
 	
 	selectPort()
@@ -97,7 +99,7 @@ def read_config():
 def get_dir():
     global dir_name
     dir_name = filedialog.askdirectory(initialdir = "/",title = "Select Directory")
-    dir_name_label.set(dir_name)
+    dir_name_text.set(dir_name)
     masterframe.update_idletasks()
 
 
@@ -112,12 +114,12 @@ def selectPort():
 
 	lst = aC.listSerialPorts()
 	
-	l1= tk.Label(masterframe, width = 5, height = 2, bg = "yellow") 
+	l1= tk.Label(masterframe, width = 5, height = 2) 
 	l1.pack()
 
 	if len(lst) > 0:
 		for n in lst:
-			r1 = tk.Radiobutton(masterframe, text=n, variable=radioVar, value=n, bg = "yellow")
+			r1 = tk.Radiobutton(masterframe, text=n, variable=radioVar, value=n)
 			r1.config(command = radioBtnPress)
 			r1.pack(anchor=W) # python 2.x use WEST
 	else:
@@ -130,43 +132,41 @@ def selectPort():
 #======================
 # definition of main screen to control Arduino
 def mainScreen():
-	global masterframe, dir_name_label
+	global masterframe, dir_name_text
 	for child in masterframe.winfo_children():
 		child.destroy()
 		
+	tkArd.geometry("600x500")
 
 	#Directory name label
 	################################################
 	read_config()
-	dir_name_label = StringVar()
-	dir_name_label.set(dir_name)
-	labelA = tk.Label(masterframe, textvariable = dir_name_label)
+	dir_name_text = StringVar()
+	dir_name_text.set(dir_name)
+	dir_name_label = tk.Label(masterframe, textvariable = dir_name_text)
 	
-	dir_name_label.set(dir_name)
+	dir_name_text.set(dir_name)
 	masterframe.update_idletasks()
 	################################################
 
 
-	#browse_dir_button = tk.Button(text="Change File Save Directory", command=get_dir, bg='green', fg='white', font=('helvetica', 12, 'bold'))
+	browse_dir_button = tk.Button(masterframe, text="Change File Save Directory", command=get_dir, bg='green', fg='white', font=('helvetica', 12, 'bold'))
 
-	testButton = tk.Button(text="Test Button")
+	testButton = tk.Button(masterframe, text="Test Button")
 
 	#File save dir
 
-	#labelA = tk.Label(masterframe, width = 5, height = 2, bg = "yellow") 
-	labelB = tk.Label(masterframe, width = 5, bg = "yellow") 
-	labelC = tk.Label(masterframe, width = 5, bg = "yellow") 
-	labelD = tk.Label(masterframe, width = 5, bg = "yellow") 
+	SpacerA = tk.Label(masterframe, width = 5, height = 2) 
+	SpacerB = tk.Label(masterframe, width = 5, height = 2) 
+	SpacerC = tk.Label(masterframe, width = 5, height = 2) 
 	labelE = tk.Label(masterframe, textvariable = cD.displayVal) 
 	
-	
-	testButton.grid(row=0, column=2)
-	labelA.grid(row = 1)
-	labelB.grid(row = 2, column = 2)
-	labelC.grid(row = 3)
-	labelD.grid(row = 5)
-	labelE.grid(row = 6, columnspan = 4)
-
+	 
+	SpacerA.grid(row = 0, column = 0, columnspan=5)
+	dir_name_label.grid(row = 1, column = 0, columnspan=5)
+	SpacerB.grid(row = 2, column = 0, columnspan=5)
+	browse_dir_button.grid(row=3, column=1, columnspan=2)
+	SpacerB.grid(row = 4, column = 0, columnspan=5)
 
 	cD.build_table(masterframe)
 
