@@ -21,14 +21,14 @@ debug = 1   #Print Statments
 ################################################
 #System Defults:
 
-Path('C:/JCS/MoldReleaseTester').mkdir(parents=True, exist_ok=True)     # set the config file location
-config_location = Path('C:/JCS/MoldReleaseTester/param_config.ini')
-calibration_csv = "C:\JCS\MoldReleaseTester\calibration.csv"
+Path('C:\JCS\OvenMonitorCtrl').mkdir(parents=True, exist_ok=True)     # set the config file location
+config_location = Path('C:\JCS\OvenMonitorCtrl\param_config.ini')
+calibration_csv = "C:\JCS\OvenMonitorCtrl\calibration.csv"
 sample_count = 0     #counts each time the machine is ran.  Used for incrementing file names
 
 #Defualt information saved in the param_config.ini file.  If the .ini is missing or
 #Not written correctly, the old one will be overwritten with these values.
-dir_name = "C:/JCS/MoldReleaseTester"   #Save location for .csv data.
+dir_name = "C:\JCS\OvenMonitorCtr"   #Save location for .csv data.
 file_name = 'TestData'      
 test_dur = 2                            #Test Durration in seconds
 sample_frequency = 100                  #Sample Frequency in Hz
@@ -147,9 +147,9 @@ def mainScreen():
 	################################################
 
 
-	browse_dir_button = tk.Button(text="Change File Save Directory", command=get_dir, bg='green', fg='white', font=('helvetica', 12, 'bold'))
-	browse_dir_button.pack();
+	#browse_dir_button = tk.Button(text="Change File Save Directory", command=get_dir, bg='green', fg='white', font=('helvetica', 12, 'bold'))
 
+	testButton = tk.Button(text="Test Button")
 
 	#File save dir
 
@@ -160,6 +160,7 @@ def mainScreen():
 	labelE = tk.Label(masterframe, textvariable = cD.displayVal) 
 	
 	
+	testButton.grid(row=0, column=2)
 	labelA.grid(row = 1)
 	labelB.grid(row = 2, column = 2)
 	labelC.grid(row = 3)
