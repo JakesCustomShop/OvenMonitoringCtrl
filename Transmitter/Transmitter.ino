@@ -60,9 +60,9 @@ esp_now_peer_info_t peerInfo; // Create peer interface
 //===Initilize timers for tracking cook time===//
 //A timer interval of 0 disables the timer
 Timer timer[6];
-int CookTime[6] = {5000,2000,0,0,0,0};
+int CookTime[6] = {7000,2000,0,0,0,0};
 //Create a timer for sending data packets every XX miliseconds z
-int DataIntervalTime = 5000; //Miliseconds (Change to 60000)
+int DataIntervalTime = 1000; //Miliseconds (Change to 60000)
 Timer dataIntervalTimer;
 
 
@@ -128,18 +128,49 @@ void loop() {
   //===TIMING SYSTEM===//
   //Check each of 6 possible timers.
   //Some Transmitters will have multiple Ovens attached.
-  for (int i = 1; i <= 6; i++) {
-    if (lcd.readButton(i)==1){//Check each of 6 buttons for a press.
-      delay(200);
-      timer[i].startTimer(CookTime[i-1]); //Start the timer 
-      //Serial.println("Timer 1 Started");
+  for (int i = 0; i <= 5; i++) {
+    
+    //Check each of 6 buttons for a press
+    if (lcd.readButton(i+1)){
+      while(lcd.readButton(i+1))  //Wait until the button is released.
+        delay(10);
+      switch(myData.Status) {
+        //Start the timer
+        case 0:   //Pre-heating
+        case 1:   //REady
+        case 4:   //Acknowledged, Ready, or Pre-heating  
+          timer[i].startTimer(CookTime[i]); //Start the timer 
+          myData.Status = 2;
+          Serial.print("Timer Started for: ");
+          Serial.println(CookTime[i]);
+          //Flashing Green. No buzzer
+          break;
+        
+        //Turn off the buzzer/ flashy lights
+        case 2: //Active cycle OR
+        case 3: //Time Complete
+            //Turn off buzzer and Inidcator light
+            myData.Status = 4;    //Acknowledge (GUI Stops collecting data)
+            Serial.println("Acknowledged (GUI Stops collecting data)");
+            timer[i].startTimer(0);  //Stop the Timer if it is active.
+            break;
+         default:
+          break;
+      }
     }
-    timer[i].checkTimer();
+    
+    if(!timer[i].checkTimer()){  //When the cooking cycle is complete
+        myData.Status = 3;    //Time Complete
+        //Two short Beeps and Two short Green Flashes
+        Serial.println("Cooking cycle is complete");
+        Serial.println("Waiting for Acknowledgement.");
+      }
+    
   }
 
 
   //===DATA TRANSMITTION===//
-  if (dataIntervalTimer.checkTimer()==1) {   
+  if (!dataIntervalTimer.checkTimer()) {   //When send interval is complete.
   
     myData.Count ++;    //For error checking.  
     //Can implement a check on the reciever and PC to make sure no transmissions are lost.  
@@ -170,16 +201,26 @@ void loop() {
     }
     
     dataIntervalTimer.startTimer(DataIntervalTime);   //Restart the timer
-  } 
+
+    //Display tempreture data to the SM LCD screen
+    DisplayTemps(myData.Temps);
+
+  } //Data Send interval 
   
-  //Display tempreture data to the SM LCD screen
-  DisplayTemps(myData.Temps);
+  if (millis() % 1000 < 5) {
+      //Display Remaing Time to the LCD
+      lcd.setCursor(0, 3);    //Column, Row
+      lcd.print("            ");    //Clear the LCD
+      lcd.setCursor(0, 3);    //Column, Row
+      lcd.print(timer[0].remainingTime()/1000);
+      lcd.print(" Seconds");
+  }
   
   //delay(2000);
   
 }
 
-
+ 
 /*
 Recieves an array of tempreture readings (up to 6)
 and displays them on an LCD screen.  

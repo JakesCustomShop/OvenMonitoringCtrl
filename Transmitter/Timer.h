@@ -8,6 +8,7 @@ class Timer {
     Timer();
     void startTimer(int timerInterval);
     int checkTimer();
+    int remainingTime();  
   private:
     int _timerStartTime;
     int _timerInterval;
