@@ -183,7 +183,7 @@ def mainScreen():
 	for child in masterframe.winfo_children():
 		child.destroy()
 		
-	tkArd.geometry("600x700")
+	tkArd.geometry("600x600")
 
 	#Directory name label
 	################################################
