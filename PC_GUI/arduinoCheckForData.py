@@ -32,24 +32,29 @@ def checkForData():
 	while threadRun == True:
 		dataInput = aC.recvFromArduino(0.1)
 		dataInput = np.fromstring(dataInput, dtype=int, sep=',')
-		print(dataInput)
+		#print(dataInput)
 		if dataInput == "<<" or dataInput == ">>":
 			dataInput = "nothing"
 			print ("DataInput %s" %(dataInput))
 		if (dataInput.any()):
 			processData(dataInput)
 			update_row(table,dataInput[0], dataInput)		#Update the table.  col 0 is the row number 
-			print(dataInput[0])
+			#print(dataInput[0])
 		time.sleep(checkDelay)
 	print ("Finished Listening")
+	print(data_array)
 
 #======================
 
-# function to illustrate the concept of dealing with the data
+#data_array = []
+
+
+#Takes 11x1 arrays, prints them to console, and saves the data to a new row in 
+#an array for each oven.
 def processData(dataRecvd):
-	global displayVal
-	inputData = dataRecvd
+	global displayVal, data_array
 	displayVal.set(dataRecvd)
+	#data_array.append(list(dataRecvd))
 
 #======================
 
@@ -69,8 +74,7 @@ def stopListening():
 #============================
 #Update a specified row in a tkinter Tree View Table
 def update_row(table, row_index, new_values):
-	if (debug):
-		print("Updating Table")
+	if (debug):print("Updating Table")
 	table.item(table.get_children()[row_index-1], values=list(new_values))
 
 
