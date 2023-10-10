@@ -13,6 +13,8 @@ import configparser
 from pathlib import Path
 
 
+
+
 ################################################
 global debug
 #debug = 0   #Debug mode off.
@@ -56,6 +58,11 @@ tkArd.minsize(width=320, height=170)
 tkArd.config()
 tkArd.title("Oven Monitoring and Timing")
 
+#Initialize the error message
+
+error_msg = StringVar() # for use in the mainscreen
+error_msg.set("starting")
+
 	# the next line must come after  tkArd = Tk() so that a StringVar()
 	#   can be created in checkForData.
 import arduinoCheckForData as cD # so we can refer to its variables
@@ -95,12 +102,52 @@ def read_config():
         if debug: print("Deleted old and creating new param_config.ini file")
 
 
+
+#Save Configuration
+#Pulls values directly from tkinter GUI
+def save_config():  
+	if debug:print("Updating Config File")
+	global error_msg, dir_name, file_name, test_dur, sample_frequency, sample_count, config
+
+	config = configparser.RawConfigParser()
+	if dir_name==0:     #if a new directory is not defined, use the old
+		config.read(config_location)
+		dir_name = config.get('File', 'dir')
+	else:
+		config.add_section('File')
+		config.set('File', 'dir', dir_name)
+
+	if config.has_section('Parameters'):
+		config.set('Parameters', 'file_name', file_name.get())
+		#config.set('Parameters', 'test_dur', tk_test_dur.get())
+		#config.set('Parameters', 'sample_frequency', tk_sample_frequency.get())
+	else:
+		config.add_section('Parameters')
+		#config.set('Parameters', 'file_name', file_name.get())
+		#config.set('Parameters', 'test_dur', tk_test_dur.get())
+		#config.set('Parameters', 'sample_frequency', tk_sample_frequency.get())
+
+	config.write(open(config_location, "w"))
+    
+	if debug:
+		print("Config File Updated")
+		print(test_dur+1-1)  #A creative way to make sure we are working with ints.
+
+	error_msg.set("Config File Updated")
+	#    root.update_idletasks
+
+
 # button to ask for directory to save output data to.
 def get_dir():
-    global dir_name
-    dir_name = filedialog.askdirectory(initialdir = "/",title = "Select Directory")
-    dir_name_text.set(dir_name)
-    masterframe.update_idletasks()
+	print("Selecting Directory")
+	global dir_name
+	dir_name = filedialog.askdirectory(initialdir = "/",title = "Select Directory")
+	dir_name_text.set(dir_name)
+	masterframe.update_idletasks()
+	if dir_name=='':
+		error_msg.set("WARNING: No File Save Directory set")
+	else:
+		error_msg.set("Directory Updated")
 
 
 		
@@ -132,11 +179,11 @@ def selectPort():
 #======================
 # definition of main screen to control Arduino
 def mainScreen():
-	global masterframe, dir_name_text
+	global masterframe, dir_name_text, error_msg
 	for child in masterframe.winfo_children():
 		child.destroy()
 		
-	tkArd.geometry("600x500")
+	tkArd.geometry("600x600")
 
 	#Directory name label
 	################################################
@@ -152,23 +199,28 @@ def mainScreen():
 
 	browse_dir_button = tk.Button(masterframe, text="Change File Save Directory", command=get_dir, bg='green', fg='white', font=('helvetica', 12, 'bold'))
 
-	testButton = tk.Button(masterframe, text="Test Button")
+	save_config_button = tk.Button(masterframe, text="Save Config", command=save_config, bg='green', fg='white', font=('helvetica', 12, 'bold'))
+
+	#testButton = tk.Button(masterframe, text="Test Button")
 
 	#File save dir
 
 	SpacerA = tk.Label(masterframe, width = 5, height = 2) 
 	SpacerB = tk.Label(masterframe, width = 5, height = 2) 
 	SpacerC = tk.Label(masterframe, width = 5, height = 2) 
-	labelE = tk.Label(masterframe, textvariable = cD.displayVal) 
+	error_label = tk.Label(masterframe, textvariable = error_msg) 
 	
 	 
 	SpacerA.grid(row = 0, column = 0, columnspan=5)
 	dir_name_label.grid(row = 1, column = 0, columnspan=5)
 	SpacerB.grid(row = 2, column = 0, columnspan=5)
 	browse_dir_button.grid(row=3, column=1, columnspan=2)
-	SpacerB.grid(row = 4, column = 0, columnspan=5)
+	save_config_button.grid(row = 4, column = 0, columnspan=5)
+	SpacerC.grid(row = 5, column = 0, columnspan=5)
 
 	cD.build_table(masterframe)
+	error_label.grid(row = 7, column = 0, columnspan=5)
+
 
 
 

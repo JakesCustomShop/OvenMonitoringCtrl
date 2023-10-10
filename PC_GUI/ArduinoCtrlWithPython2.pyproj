@@ -23,7 +23,6 @@
   <ItemGroup>
     <Compile Include="arduinoCheckForData.py" />
     <Compile Include="arduinoCommsB.py" />
-    <Compile Include="arduinoGUI2 - OLD.py" />
     <Compile Include="arduinoGUI2.py" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
