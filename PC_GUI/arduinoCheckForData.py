@@ -4,6 +4,7 @@ from tkinter import *
 from tkinter import ttk
 import threading
 import time
+import datetime
 import numpy as np
 import arduinoCommsB as aC
 from pandas import read_csv
@@ -61,7 +62,7 @@ def SaveData(OvenID):
 
 	#File Saving Stuff
 	#===========================
-	file_name = "Test_Data"
+	file_name = buildFileName(OvenID)
 	dir_name = "C:\JCS\OvenMonitorCtrl"
 	#dir_filename = dir_name + '/' + file_name + '{:03d}'.format(sample_count) + '.csv'
 	dir_filename = dir_name + '/' + file_name + '.csv'
@@ -97,6 +98,7 @@ class DataClass():
 		self.OvenID: int
 		self.Count: int
 		self.Status = 0
+		#self.fileName = buildFileName(self.OvenID)
 	def append_array(self, Temps):
 		self.Temps.append(Temps)
 
@@ -167,3 +169,13 @@ def build_table(masterframe):
 	data = [(' ', ' '), (' ', ' '), (' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' ')]
 	for item in data:
 		table.insert('', 'end', values=item)
+
+def buildFileName(oven_id: int) -> str:
+  """Builds a string with the OvenID number and today's date time in the format YYYYMMDD-HHMM
+  Returns:
+    A string with the OvenID number and today's date time in the format YYYYMMDD-HHMM.
+  """
+
+  date_time = datetime.datetime.today()
+  date_time_str = date_time.strftime("%Y%m%d-%H%M")
+  return f"{oven_id}-{date_time_str}"
