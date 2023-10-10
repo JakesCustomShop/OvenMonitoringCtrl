@@ -5,6 +5,9 @@ import threading
 import time
 import numpy as np
 import arduinoCommsB as aC
+from pandas import read_csv
+#from arduinoGUI2 import error_msg
+#from arduinoGUI2 import debug
 
 debug = 0	#No Debugging
 #debug = 1	#Debuging messages.
@@ -26,7 +29,7 @@ displayVal.set("starting")
 #======================
 
 def checkForData():
-	global threadRun, checkDelay
+	global threadRun, checkDelay, dir_name, error_msg
 	print ("Starting to Listen")
 	oldDataInput = "waiting"
 	while threadRun == True:
@@ -41,15 +44,56 @@ def checkForData():
 			update_row(table,dataInput[0], dataInput)		#Update the table.  col 0 is the row number 
 			print(dataInput[0])
 		time.sleep(checkDelay)
-	print ("Finished Listening")
+	print("Finished Listening")
+
+
+
+	#File Saving Stuff
+	#===========================
+	file_name = "Test_Data"
+	dir_name = "C:\JCS\OvenMonitorCtrl"
+	#dir_filename = dir_name + '/' + file_name + '{:03d}'.format(sample_count) + '.csv'
+	dir_filename = dir_name + '/' + file_name + '.csv'
+	if debug:print(dir_filename)
+	
+	try:        #Prevent the user from acidently overwriting old data.
+		df = read_csv(dir_filename)
+		error_msg = "File already exists, Please use a different file name"
+		return
+	except:
+		0
+
+	if debug:print("dir_filename: " + dir_filename)
+
+
+	with open(dir_filename, 'x') as f:          #Creates a file if none exists.  Returns error if it does. 
+		if debug:print('Writing data to ' + dir_filename, end='')
+		# Write a header to the file
+		for chan_num in range(8):
+			f.write('Channel ' + str(chan_num) + ',')
+		f.write(u'\n')
+		#f.write(str(data_array))
+
+		if debug:print(len(data_array))
+		for row in data_array:
+			f.write(",".join(str(item) for item in row) + "\n")
+
+
+	#===========================
+
+
+	print(data_array)
 
 #======================
-
+data_array = []
 # function to illustrate the concept of dealing with the data
 def processData(dataRecvd):
 	global displayVal
 	inputData = dataRecvd
 	displayVal.set(dataRecvd)
+	global data_array
+	data_array.append(list(dataRecvd))
+	
 
 #======================
 
