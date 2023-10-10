@@ -1,3 +1,4 @@
+
 from msilib import Table
 from tkinter import *
 from tkinter import ttk
@@ -44,9 +45,19 @@ def checkForData():
 			update_row(table,dataInput[0], dataInput)		#Update the table.  col 0 is the row number 
 			print(dataInput[0])
 		time.sleep(checkDelay)
+
+		if OvenDataObject[2].Status == 4:
+			SaveData(2)
+			#OvenDataObject.Status = 5						#Temperature Data file saved
+
 	print("Finished Listening")
+	print(OvenDataObject[2].Temps)
 
 
+#Saves a 2D array to a text file from Global OvenDataObject
+def SaveData(OvenID):
+
+	global dir_name, error_msg
 
 	#File Saving Stuff
 	#===========================
@@ -72,27 +83,39 @@ def checkForData():
 		for chan_num in range(8):
 			f.write('Channel ' + str(chan_num) + ',')
 		f.write(u'\n')
-		#f.write(str(data_array))
 
-		if debug:print(len(data_array))
-		for row in data_array:
+		if debug:print(len(OvenDataObject[OvenID].Temps))
+		for row in OvenDataObject[OvenID].Temps:
 			f.write(",".join(str(item) for item in row) + "\n")
 
 
 	#===========================
 
+class DataClass():
+	def __init__(self):
+		self.Temps = []
+		self.OvenID: int
+		self.Count: int
+		self.Status = 0
+	def append_array(self, Temps):
+		self.Temps.append(Temps)
 
-	print(data_array)
+#An array of class objects.  First element is empty so indexing can be done with OvenID number (which starts at 1)
+OvenDataObject = [0, DataClass(),DataClass(),DataClass(),DataClass(),DataClass(),DataClass(),DataClass(),DataClass()]
+	
 
 #======================
-data_array = []
+#OvenDataObject = []
 # function to illustrate the concept of dealing with the data
 def processData(dataRecvd):
 	global displayVal
 	inputData = dataRecvd
 	displayVal.set(dataRecvd)
-	global data_array
-	data_array.append(list(dataRecvd))
+	global OvenDataObject
+	OvenID = dataRecvd[0]
+	OvenDataObject[OvenID].OvenID = OvenID
+	OvenDataObject[OvenID].Status = dataRecvd[10]
+	OvenDataObject[OvenID].append_array([dataRecvd[2], dataRecvd[3], dataRecvd[4], dataRecvd[5],dataRecvd[6], dataRecvd[7], dataRecvd[8], dataRecvd[9]])
 	
 
 #======================
