@@ -17,9 +17,7 @@
 
 /*
 TODO:
-  - Add meta data to a single string transmisttion
-      - Oven number, count, status etc.
-
+  
 
 */
 

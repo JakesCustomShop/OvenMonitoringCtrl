@@ -7,7 +7,7 @@ import time
 import datetime
 import numpy as np
 import arduinoCommsB as aC
-from pandas import read_csv
+from pandas import read_csv			#May be able to delete this
 #from arduinoGUI2 import error_msg
 #from arduinoGUI2 import debug
 
@@ -44,7 +44,6 @@ def checkForData():
 		if (dataInput.any()):
 			processData(dataInput)
 			update_row(table,dataInput[0], dataInput)		#Update the table.  col 0 is the row number 
-			print(dataInput[0])
 		time.sleep(checkDelay)
 
 		#Check each of the OvenDataObjects for a change to Acknowledged Status Byte.  Also check
@@ -63,8 +62,7 @@ def checkForData():
 
 #Saves a 2D array to a text file from Global OvenDataObject
 def SaveData(OvenID):
-
-	global dir_name, error_msg
+	global dir_name
 
 	#File Saving Stuff
 	#===========================
@@ -86,14 +84,18 @@ def SaveData(OvenID):
 
 	with open(dir_filename, 'x') as f:          #Creates a file if none exists.  Returns error if it does. 
 		if debug:print('Writing data to ' + dir_filename, end='')
+		
+		f.write("OvenID: " + str(OvenID) + "\n")
 		# Write a header to the file
 		for chan_num in range(8):
 			f.write('Channel ' + str(chan_num) + ',')
 		f.write(u'\n')
-
 		if debug:print(len(OvenDataObject[OvenID].Temps))
+		
 		for row in OvenDataObject[OvenID].Temps:
 			f.write(",".join(str(item) for item in row) + "\n")
+		
+	
 
 
 	#===========================
@@ -159,7 +161,7 @@ def build_table(masterframe):
 	global table		
 	table = ttk.Treeview(
 		masterframe, 
-		columns= ('ovenid','count', 'temp1','temp2','temp3','temp4','temp5','temp6','temp7','temp8'),
+		columns= ('ovenid','count', 'temp1','temp2','temp3','temp4','temp5','temp6','temp7','temp8', 'status'),
 		show='headings')
 
 	table.grid(row=6,column=1,columnspan = 2, ipadx=10, ipady=50)	#Required to show table in masterframe
@@ -169,9 +171,11 @@ def build_table(masterframe):
 	table.heading('ovenid', text='Transmitter')
 	table.column('count', width=50)
 	table.heading('count', text='Sample #')
+	table.column('status', width=50)
+	table.heading('status', text='Status')
 	for num in range(1,9):
 		table.column('temp{}'.format(num),width=50)
-		table.heading('temp{}'.format(num), text='Temp {}'.format(num))
+		table.heading('temp{}'.format(num), text='Chnl {}'.format(num))
 
 	# Insert some data into the table
 	data = [(' ', ' '), (' ', ' '), (' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' ')]
