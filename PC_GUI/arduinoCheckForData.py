@@ -38,7 +38,7 @@ def checkForData():
 		dataInput = aC.recvFromArduino(0.1)
 		dataInput = np.fromstring(dataInput, dtype=int, sep=',')
 		print(dataInput)
-		if dataInput == "<<" or dataInput == ">>":
+		if str(dataInput) == "<<" or str(dataInput) == ">>":
 			dataInput = "nothing"
 			print ("DataInput %s" %(dataInput))
 		if (dataInput.any()):
@@ -47,9 +47,15 @@ def checkForData():
 			print(dataInput[0])
 		time.sleep(checkDelay)
 
-		if OvenDataObject[2].Status == 4:
-			SaveData(2)
-			#OvenDataObject.Status = 5						#Temperature Data file saved
+		#Check each of the OvenDataObjects for a change to Acknowledged Status Byte.  Also check
+		#and save data to a fresh .csv file.
+		for i in range(1,len(OvenDataObject)):
+			#Oven Status is updated to Acknowledge. We are not in Status 0 (Startup)
+			if OvenDataObject[i].Status == 4 and OvenDataObject[i].PrevStatus !=4 and OvenDataObject[i].PrevStatus:
+				SaveData(i)
+				#OvenDataObject.Status = 5						#Temperature Data file saved
+			OvenDataObject[i].PrevStatus = OvenDataObject[i].Status
+				
 
 	print("Finished Listening")
 	print(OvenDataObject[2].Temps)
@@ -97,6 +103,7 @@ class DataClass():
 		self.Temps = []
 		self.OvenID: int
 		self.Count: int
+		self.PrevStatus = 0
 		self.Status = 0
 		#self.fileName = buildFileName(self.OvenID)
 	def append_array(self, Temps):
@@ -115,6 +122,7 @@ def processData(dataRecvd):
 	displayVal.set(dataRecvd)
 	global OvenDataObject
 	OvenID = dataRecvd[0]
+	print("Oven ID: " + str(OvenID))
 	OvenDataObject[OvenID].OvenID = OvenID
 	OvenDataObject[OvenID].Status = dataRecvd[10]
 	OvenDataObject[OvenID].append_array([dataRecvd[2], dataRecvd[3], dataRecvd[4], dataRecvd[5],dataRecvd[6], dataRecvd[7], dataRecvd[8], dataRecvd[9]])

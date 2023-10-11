@@ -45,7 +45,7 @@ bool RTD_Check;   //Check to see if the Sequent RTD hat exists.
 // Structure example to send data
 // Must match the receiver structure
 typedef struct struct_message {
-    int OvenID = 2; // must be unique for each sender board. 
+    int OvenID = 1; // must be unique for each sender board. 
     int Count = 0;    //Counts the number of transmissions.
     int Temps[8];   //Each element is a seperate chamber in the oven?
     byte Status = 0;    //
