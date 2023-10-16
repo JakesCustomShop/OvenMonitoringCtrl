@@ -27,6 +27,7 @@ TODO:
 #include <WiFi.h>
 #include "SM_RTD.h"
 #include "SM_LCDAdapter.h"
+#include "LCD_Menu.h"
 SM_LCDAdapter lcd = SM_LCDAdapter();
 
 // REPLACE WITH THE RECEIVER'S MAC Address
@@ -203,18 +204,29 @@ void loop() {
     //Display tempreture data to the SM LCD screen
     DisplayTemps(myData.Temps);
 
+   
+
   } //Data Send interval 
   
   if (millis() % 1000 < 5) {
       //Display Remaing Time to the LCD
       lcd.setCursor(0, 3);    //Column, Row
-      lcd.print("            ");    //Clear the LCD
+      lcd.clear();    //Clear the LCD
       lcd.setCursor(0, 3);    //Column, Row
       lcd.print(timer[0].remainingTime()/1000);
       lcd.print(" Seconds");
   }
   
   //delay(2000);
+
+  // Update the current menu option
+  updateMenuOption();
+
+  // Update the menu value based on the current menu option and the rotary encoder
+  updateMenuValue();
+
+  // Display the current menu option
+  displayMenuOption();
   
 }
 
@@ -226,6 +238,7 @@ and displays them on an LCD screen.
 void DisplayTemps(int x[]) {
   //String Temp_Disp = String(x);
   String Temp_Disp;
+  //lcd.clear();
   // set cursor to first column, first row
   Temp_Disp = String("1: ") + String(x[0]);
   lcd.setCursor(0, 0);
@@ -264,4 +277,94 @@ void DisplayTemps(int x[]) {
   lcd.print("C");
   
   return;
+}
+
+
+// Display the current menu option
+void displayMenuOption() {
+  lcd.clear();
+  while(lcd.readButton(1) == LOW) {
+    switch (currentMenuOption) {
+      case HOME:
+        //lcd.clear();
+        DisplayTemps(myData.Temps);
+        break;
+      case OVEN_ID:
+        lcd.setCursor(0, 0);    //Column, Row
+        lcd.print("Menu:");
+        lcd.setCursor(0, 1);    //Column, Row
+        lcd.print("Oven ID");
+        lcd.setCursor(0, 2);    //Column, Row
+        lcd.print(ovenID.Value());
+        
+        break;
+      case TEMPERATURE_SETPOINT:
+        lcd.setCursor(0, 0);    //Column, Row
+        lcd.print("Menu:");
+        lcd.setCursor(0, 1);
+        lcd.print("Temperature Setpoint");
+        lcd.setCursor(0, 2);    //Column, Row
+        lcd.print(temperatureSetpoint.Value());
+        lcd.print(" Degrees C");
+        break;
+      case COOK_TIME:
+        lcd.setCursor(0, 0);    //Column, Row
+        lcd.print("Menu:");
+        lcd.setCursor(0, 1);
+        lcd.print("Cook Time");
+        lcd.setCursor(0, 2);    //Column, Row
+        lcd.print(cookTime.Value());
+        lcd.print(" Minutes");
+        break;
+      case DATA_INTERVAL_TIME:
+        lcd.setCursor(0, 0);    //Column, Row
+        lcd.print("Menu:");
+        lcd.setCursor(0, 1);
+        lcd.print("Data Interval Time");
+        lcd.setCursor(0, 2);    //Column, Row
+        lcd.print(dataIntervalTime.Value());
+        lcd.print(" Seconds");
+        break;
+    }
+    updateMenuValue();
+  }
+  
+  delay(750);  //Temporay solution
+
+}
+
+// Update the current menu option based on the rotary encoder
+void updateMenuOption() {
+  lcd.resetEncoder();
+  int rotaryValue = lcd.readEncoder();
+  delay(10);
+  
+
+  if (rotaryValue = -1) {
+    currentMenuOption = MenuOption((currentMenuOption + 1) % 4);
+  } else if (rotaryValue = 1) {
+    currentMenuOption = MenuOption((currentMenuOption - 1) % 4);
+  }
+}
+
+// Update the oven ID, temperature setpoint, cook time, or data interval time based on the current menu option and the rotary encoder
+void updateMenuValue() {
+  lcd.resetEncoder();
+  int rotaryValue = -lcd.readEncoder();
+  Serial.println(rotaryValue);
+  delay(10);
+  switch (currentMenuOption) {
+    case OVEN_ID:
+      ovenID.setValue(ovenID.Value() + rotaryValue);
+      break;
+    case TEMPERATURE_SETPOINT:
+      temperatureSetpoint.setValue(temperatureSetpoint.Value() + rotaryValue * 10.0);
+      break;
+    case COOK_TIME:
+      cookTime.setValue(cookTime.Value() + rotaryValue);
+      break;
+    case DATA_INTERVAL_TIME:
+      dataIntervalTime.setValue(dataIntervalTime.Value() + rotaryValue);
+      break;
+  }
 }
