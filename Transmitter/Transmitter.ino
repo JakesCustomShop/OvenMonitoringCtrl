@@ -11,14 +11,17 @@
     Notes: 
      - Must use 3-Wire RTD or jumper on RTD DAQ. inputs
      - For use with Reciever3.ino
-     - Will work with a plain ol' ESP32 for testing purposes. 
+     - Will work with a plain ol' ESP32 for testing purposes.  
+     - Adding a menu option requres update to updateMenuOption() 
+
+     
 */
 
 
 /*
 TODO:
-  
-
+  Necessary Changes for impementation
+     - Use external buttons to start stop timers!
 */
 
 
@@ -61,7 +64,8 @@ esp_now_peer_info_t peerInfo; // Create peer interface
 Timer timer[6];
 int CookTime[6] = {7000,2000,0,0,0,0};
 //Create a timer for sending data packets every XX miliseconds z
-int DataIntervalTime = 1000; //Miliseconds (Change to 60000)
+//int DataIntervalTime = 1000; //Miliseconds (Change to 60000)
+// dataIntervalTime.setValue(1000);
 Timer dataIntervalTimer;
 
 
@@ -115,24 +119,22 @@ void setup() {
   lcd.begin(20, 4);
   lcd.writeBl(20);
 
-  dataIntervalTimer.startTimer(DataIntervalTime); //Start a timer to send data packets at specified intervals.
+  dataIntervalTimer.startTimer(dataIntervalTime.Value()); //Start a timer to send data packets at specified intervals.
 
 }
 
 
  
 void loop() {
-
-  
+ 
   //===TIMING SYSTEM===//
   //Check each of 6 possible timers.
   //Some Transmitters will have multiple Ovens attached.
-  for (int i = 0; i <= 5; i++) {
+  for (int i = 1; i <= 5; i++) {
     
     //Check each of 6 buttons for a press
-    if (lcd.readButton(i+1)){
-      while(lcd.readButton(i+1))  //Wait until the button is released.
-        delay(10);
+    //This will need updated once physical buttons are implmented
+    if (lcd.readButtonLatch(i+1)){
       switch(myData.Status) {
         //Start the timer
         case 0:   //Pre-heating
@@ -199,10 +201,8 @@ void loop() {
       Serial.println("Error sending the data");
     }
     
-    dataIntervalTimer.startTimer(DataIntervalTime);   //Restart the timer
+    dataIntervalTimer.startTimer(dataIntervalTime.Value());   //Restart the timer
 
-    //Display tempreture data to the SM LCD screen
-    DisplayTemps(myData.Temps);
 
    
 
@@ -218,6 +218,8 @@ void loop() {
   }
   
   //delay(2000);
+  // Display the current menu option
+  displayMenuOption();
 
   // Update the current menu option
   updateMenuOption();
@@ -225,8 +227,6 @@ void loop() {
   // Update the menu value based on the current menu option and the rotary encoder
   updateMenuValue();
 
-  // Display the current menu option
-  displayMenuOption();
   
 }
 
@@ -282,11 +282,9 @@ void DisplayTemps(int x[]) {
 
 // Display the current menu option
 void displayMenuOption() {
-  lcd.clear();
-  while(lcd.readButton(1) == LOW) {
+  // lcd.clear();
     switch (currentMenuOption) {
       case HOME:
-        //lcd.clear();
         DisplayTemps(myData.Temps);
         break;
       case OVEN_ID:
@@ -296,7 +294,6 @@ void displayMenuOption() {
         lcd.print("Oven ID");
         lcd.setCursor(0, 2);    //Column, Row
         lcd.print(ovenID.Value());
-        
         break;
       case TEMPERATURE_SETPOINT:
         lcd.setCursor(0, 0);    //Column, Row
@@ -322,28 +319,21 @@ void displayMenuOption() {
         lcd.setCursor(0, 1);
         lcd.print("Data Interval Time");
         lcd.setCursor(0, 2);    //Column, Row
-        lcd.print(dataIntervalTime.Value());
+        lcd.print(dataIntervalTime.Value()/1000);
         lcd.print(" Seconds");
         break;
     }
     updateMenuValue();
-  }
   
-  delay(750);  //Temporay solution
+  // delay(750);  //Temporay solution
 
 }
 
 // Update the current menu option based on the rotary encoder
-void updateMenuOption() {
-  lcd.resetEncoder();
-  int rotaryValue = lcd.readEncoder();
-  delay(10);
-  
-
-  if (rotaryValue = -1) {
-    currentMenuOption = MenuOption((currentMenuOption + 1) % 4);
-  } else if (rotaryValue = 1) {
-    currentMenuOption = MenuOption((currentMenuOption - 1) % 4);
+void updateMenuOption() {  
+  if(lcd.readButtonLatch(1)){   //checks for a single button press and release.
+    lcd.clear();
+    currentMenuOption = MenuOption((currentMenuOption + 1) % 5);  //Somehow % makes sure we don't go to a non existant menu
   }
 }
 
@@ -351,8 +341,9 @@ void updateMenuOption() {
 void updateMenuValue() {
   lcd.resetEncoder();
   int rotaryValue = -lcd.readEncoder();
-  Serial.println(rotaryValue);
+  //Serial.println(rotaryValue);
   delay(10);
+  
   switch (currentMenuOption) {
     case OVEN_ID:
       ovenID.setValue(ovenID.Value() + rotaryValue);
@@ -364,7 +355,7 @@ void updateMenuValue() {
       cookTime.setValue(cookTime.Value() + rotaryValue);
       break;
     case DATA_INTERVAL_TIME:
-      dataIntervalTime.setValue(dataIntervalTime.Value() + rotaryValue);
+      dataIntervalTime.setValue(dataIntervalTime.Value() + rotaryValue*1000);
       break;
   }
 }

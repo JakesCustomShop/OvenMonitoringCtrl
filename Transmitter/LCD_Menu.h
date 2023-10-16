@@ -1,6 +1,5 @@
 #ifndef LCD_Menu
 #define LCD_Menu
-
 #include "Arduino.h"
 
 // Define the menu options
@@ -17,9 +16,9 @@ MenuOption currentMenuOption = HOME;
 
 class Parameter {
 public:
-  int value;
-  int min_val;
-  int max_val;
+  unsigned int value;
+  unsigned int min_val;
+  unsigned int max_val;
 
   Parameter(int value, int min_val, int max_val) {
     this->value = value;
@@ -45,8 +44,9 @@ public:
 };
 
 Parameter ovenID(1, 1, 8);
-Parameter temperatureSetpoint(350, 100, 500);
+Parameter temperatureSetpoint(225, 0, 500);
 Parameter cookTime(60, 1, 6000);
-Parameter dataIntervalTime(3, 1, 1000);
+Parameter dataIntervalTime(3000, 1000, 100000); //Miliseconds
 
 #endif
+
