@@ -31,6 +31,10 @@ TODO:
 #include "SM_RTD.h"
 #include "SM_LCDAdapter.h"
 #include "LCD_Menu.h"
+#include "FS.h"
+#include "SD.h"
+#include "SPI.h"
+#include "SM_ESP32Pi.h"
 SM_LCDAdapter lcd = SM_LCDAdapter();
 
 // REPLACE WITH THE RECEIVER'S MAC Address
@@ -50,7 +54,7 @@ typedef struct struct_message {
     int OvenID = 1; // must be unique for each sender board. 
     int Count = 0;    //Counts the number of transmissions.
     int Temps[8];   //Each element is a seperate chamber in the oven?
-    byte Status = 0;    //
+    int Status = 0;    //
     //int BatchID;     //6-Digit identification number for each batch. 
 } struct_message;
 struct_message myData;        // Create a struct_message called myData
@@ -65,7 +69,7 @@ enum SystemStatus {
   ERROR
 };
 // Define the current menu option
-SystemStatus myData.Status = STARTUP;
+//SystemStatus myData.Status = STARTUP;
 
 
 esp_now_peer_info_t peerInfo; // Create peer interface
@@ -87,12 +91,32 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
 }
  
+
+
+
 void setup() {
    
   // Init Serial Monitor
   Serial.begin(115200);
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
+
+  //===SD Card Stuff==//
+  if(!SD.begin(SM_ESP32PI_SDCARD_CS)){
+    Serial.println("Card Mount Failed");
+    return;
+  }
+  uint8_t cardType = SD.cardType();
+  //Reads the parameter file on the SD card.
+  //also asigns read values to the Parameters class
+  readParameterFile(SD, "/parameters.txt");   
+  myData.OvenID = ovenID.Value();     //Please fix this
+
+  if(cardType == CARD_NONE){
+    Serial.println("No SD card attached");
+    return;
+  }
+
 
   // Init ESP-NOW
   if (esp_now_init() != ESP_OK) {
@@ -329,16 +353,29 @@ void displayMenuOption() {
         lcd.print(dataIntervalTime.Value()/1000);
         lcd.print(" Seconds");
         break;
+      case SAVE_PARAM:
+        String parameters = "";
+        parameters += "ovenID: " + String(ovenID.Value()) + "\n";
+        myData.OvenID = ovenID.Value();     //Please fix this
+        parameters += "temperatureSetpoint: " + String(temperatureSetpoint.Value()) + "\n";
+        parameters += "cookTime: " + String(cookTime.Value()) + "\n";
+        parameters += "dataIntervalTime: " + String(dataIntervalTime.Value()) + "\n";
+        writeFile(SD, "/parameters.txt", parameters);
+        readParameterFile(SD, "/parameters.txt");
+        lcd.setCursor(0, 1);
+        currentMenuOption = MenuOption(0);    //Returns to menuOption Home
+        displayMenuOption();
+        break;
     }
     updateMenuValue();
 
 }
 
-// Update the current menu option based on the rotary encoder
+// Update the current menu option on each button press.
 void updateMenuOption() {  
   if(lcd.readButtonLatch(1)){   //checks for a single button press and release.
     lcd.clear();
-    currentMenuOption = MenuOption((currentMenuOption + 1) % 5);  //Somehow % makes sure we don't go to a non existant menu
+    currentMenuOption = MenuOption((currentMenuOption + 1) % 6);  //Somehow % makes sure we don't go to a non existant menu
   }
 }
 
@@ -364,4 +401,88 @@ void updateMenuValue() {
       dataIntervalTime.setValue(dataIntervalTime.Value() + rotaryValue*1000);
       break;
   }
+}
+
+//===SD Card Stuff===//
+void writeFile(fs::FS &fs, const char * path, String message){
+  if (debug)Serial.printf("Writing file: %s\n", path);
+
+  File file = fs.open(path, FILE_WRITE);
+  if(!file){
+    Serial.println("Failed to open file for writing");
+    return;
+  }
+  if(file.print(message)){
+    Serial.println("File written");
+  } else {
+    Serial.println("Write failed");
+  }
+  file.close();
+}
+void appendFile(fs::FS &fs, const char * path, String message){
+  if (debug)Serial.printf("Appending to file: %s\n", path);
+
+  File file = fs.open(path, FILE_APPEND);
+  if(!file){
+    Serial.println("Failed to open file for appending");
+    return;
+  }
+  if(file.print(message)){
+      Serial.println("Message appended");
+  } else {
+    Serial.println("Append failed");
+  }
+  file.close();
+}
+
+void readParameterFile(fs::FS &fs, const char * path){
+  if (debug)Serial.printf("Reading file: %s\n", path);
+
+  File file = fs.open(path);
+  if(!file){
+    Serial.println("Failed to open file for reading");
+    return;
+  }
+
+  // Read the parameters from the file
+  String line;
+  while (file.available()) {
+    line = file.readStringUntil('\n');
+    line.trim();
+
+    // Split the line into the parameter name and value
+    int colonIndex = line.indexOf(':');
+    String parameterName = line.substring(0, colonIndex);
+    String parameterValue = line.substring(colonIndex + 1);
+
+    // Convert the parameter value to an integer
+    int intValue = parameterValue.toInt();
+
+    // Assign the parameter value to the corresponding Parameter object
+    if (parameterName == "ovenID") {
+      ovenID.setValue(intValue);
+    } else if (parameterName == "temperatureSetpoint") {
+      temperatureSetpoint.setValue(intValue);
+    } else if (parameterName == "cookTime") {
+      cookTime.setValue(intValue);
+    } else if (parameterName == "dataIntervalTime") {
+      dataIntervalTime.setValue(intValue);
+    }
+  }
+
+  // Print the parameter values to the serial monitor
+  if (debug){
+    Serial.println("Parameter values:");
+    Serial.print("ovenID: ");
+    Serial.println(ovenID.Value());
+    Serial.print("temperatureSetpoint: ");
+    Serial.println(temperatureSetpoint.Value());
+    Serial.print("cookTime: ");
+    Serial.println(cookTime.Value());
+    Serial.print("dataIntervalTime: ");
+    Serial.println(dataIntervalTime.Value());
+  }
+
+
+  file.close();
 }

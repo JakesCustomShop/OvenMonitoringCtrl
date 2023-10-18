@@ -2,13 +2,16 @@
 #define LCD_Menu
 #include "Arduino.h"
 
+
+
 // Define the menu options
 enum MenuOption {
   HOME,       //Displays channel tempretures and remaining cook time
   OVEN_ID,
   TEMPERATURE_SETPOINT,
   COOK_TIME,
-  DATA_INTERVAL_TIME
+  DATA_INTERVAL_TIME,
+  SAVE_PARAM          //Parameters are saved after the menu is cycled back to Home
 };
 
 // Define the current menu option
@@ -41,12 +44,16 @@ public:
   int getMaxVal() {
     return max_val;
   }
+
+
 };
 
+//System Defults if no parameter.txt file exists
 Parameter ovenID(1, 1, 8);
 Parameter temperatureSetpoint(225, 0, 500);
 Parameter cookTime(7, 1, 60);            //Seconds
 Parameter dataIntervalTime(3000, 1000, 100000); //Miliseconds
+
 
 #endif
 

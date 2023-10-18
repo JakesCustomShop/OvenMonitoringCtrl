@@ -178,7 +178,7 @@ def build_table(masterframe):
 		table.heading('temp{}'.format(num), text='Chnl {}'.format(num))
 
 	# Insert some data into the table
-	data = [(' ', ' '), (' ', ' '), (' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' ')]
+	data = [(' ', ' '), (' ', ' '), (' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' ')]
 	for item in data:
 		table.insert('', 'end', values=item)
 
