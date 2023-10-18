@@ -55,6 +55,19 @@ typedef struct struct_message {
 } struct_message;
 struct_message myData;        // Create a struct_message called myData
 
+enum SystemStatus {
+  STARTUP,
+  OVEN_READY,
+  CYCLE_ACTIVE,
+  TIME_COMPLETE,
+  ACKNOWLEDGED,
+  TEMPERATURE_DATA_SAVED,
+  ERROR
+};
+// Define the current menu option
+SystemStatus myData.Status = STARTUP;
+
+
 esp_now_peer_info_t peerInfo; // Create peer interface
 
 
@@ -62,10 +75,8 @@ esp_now_peer_info_t peerInfo; // Create peer interface
 //===Initilize timers for tracking cook time===//
 //A timer interval of 0 disables the timer
 Timer timer[6];
-int CookTime[6] = {7000,2000,0,0,0,0};
+//int CookTime[6] = {7000,2000,0,0,0,0};    Changed to class Parameter
 //Create a timer for sending data packets every XX miliseconds z
-//int DataIntervalTime = 1000; //Miliseconds (Change to 60000)
-// dataIntervalTime.setValue(1000);
 Timer dataIntervalTimer;
 
 
@@ -137,21 +148,21 @@ void loop() {
     if (lcd.readButtonLatch(i+1)){
       switch(myData.Status) {
         //Start the timer
-        case 0:   //Pre-heating
-        case 1:   //REady
-        case 4:   //Acknowledged, Ready, or Pre-heating  
-          timer[i].startTimer(CookTime[i]); //Start the timer 
+        case STARTUP:   //Pre-heating
+        case OVEN_READY:   //Ready
+        case ACKNOWLEDGED:   //Acknowledged, Ready, or Pre-heating  
+          timer[i].startTimer(cookTime.Value()*1000); //Start the timer.  cookTime is units of seconds.
           myData.Status = 2;
           Serial.print("Timer Started for: ");
-          Serial.println(CookTime[i]);
+          Serial.println(cookTime.Value());
           //Flashing Green. No buzzer
           break;
         
         //Turn off the buzzer/ flashy lights
-        case 2: //Active cycle OR
-        case 3: //Time Complete
+        case CYCLE_ACTIVE: //Active cycle OR
+        case TIME_COMPLETE: //Time Complete
             //Turn off buzzer and Inidcator light
-            myData.Status = 4;    //Acknowledge (GUI Stops collecting data)
+            myData.Status = ACKNOWLEDGED;    //Acknowledge (GUI Stops collecting data)
             Serial.println("Acknowledged (GUI Stops collecting data)");
             timer[i].startTimer(0);  //Stop the Timer if it is active.
             break;
@@ -161,7 +172,7 @@ void loop() {
     }
     
     if(!timer[i].checkTimer()){  //When the cooking cycle is complete
-        myData.Status = 3;    //Time Complete
+        myData.Status = TIME_COMPLETE;    //Time Complete
         //Two short Beeps and Two short Green Flashes
         Serial.println("Cooking cycle is complete");
         Serial.println("Waiting for Acknowledgement.");
@@ -194,31 +205,16 @@ void loop() {
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
   
      
-    if (result == ESP_OK) {
+    if (result == ESP_OK)
       Serial.println("Sent with success");
-    }
-    else {
+    else
       Serial.println("Error sending the data");
-    }
-    
     dataIntervalTimer.startTimer(dataIntervalTime.Value());   //Restart the timer
-
-
-   
-
   } //Data Send interval 
   
-  if (millis() % 1000 < 5) {
-      //Display Remaing Time to the LCD
-      lcd.setCursor(0, 3);    //Column, Row
-      lcd.clear();    //Clear the LCD
-      lcd.setCursor(0, 3);    //Column, Row
-      lcd.print(timer[0].remainingTime()/1000);
-      lcd.print(" Seconds");
-  }
   
-  //delay(2000);
-  // Display the current menu option
+
+  // Display the current menu option on the LCD screen
   displayMenuOption();
 
   // Update the current menu option
@@ -230,6 +226,15 @@ void loop() {
   
 }
 
+
+//Displaies Remaing Time to the LCD
+void displayRemainingTime() {
+  if (millis() % 500 < 50) {
+      lcd.setCursor(0, 3);    //Column, Row
+      lcd.print(timer[1].remainingTime()/1000);
+      lcd.print(" Seconds");
+  }
+}
  
 /*
 Recieves an array of tempreture readings (up to 6)
@@ -286,6 +291,8 @@ void displayMenuOption() {
     switch (currentMenuOption) {
       case HOME:
         DisplayTemps(myData.Temps);
+        //Prints the remaining cook time to the LCD Screen
+        displayRemainingTime();
         break;
       case OVEN_ID:
         lcd.setCursor(0, 0);    //Column, Row
@@ -324,8 +331,6 @@ void displayMenuOption() {
         break;
     }
     updateMenuValue();
-  
-  // delay(750);  //Temporay solution
 
 }
 
@@ -342,7 +347,7 @@ void updateMenuValue() {
   lcd.resetEncoder();
   int rotaryValue = -lcd.readEncoder();
   //Serial.println(rotaryValue);
-  delay(10);
+  // delay(10);
   
   switch (currentMenuOption) {
     case OVEN_ID:
@@ -353,6 +358,7 @@ void updateMenuValue() {
       break;
     case COOK_TIME:
       cookTime.setValue(cookTime.Value() + rotaryValue);
+      
       break;
     case DATA_INTERVAL_TIME:
       dataIntervalTime.setValue(dataIntervalTime.Value() + rotaryValue*1000);

@@ -4,7 +4,7 @@
 
 // Define the menu options
 enum MenuOption {
-  HOME,
+  HOME,       //Displays channel tempretures and remaining cook time
   OVEN_ID,
   TEMPERATURE_SETPOINT,
   COOK_TIME,
@@ -45,7 +45,7 @@ public:
 
 Parameter ovenID(1, 1, 8);
 Parameter temperatureSetpoint(225, 0, 500);
-Parameter cookTime(60, 1, 6000);
+Parameter cookTime(7, 1, 60);            //Seconds
 Parameter dataIntervalTime(3000, 1000, 100000); //Miliseconds
 
 #endif
