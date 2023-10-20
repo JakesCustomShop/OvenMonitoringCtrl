@@ -9,28 +9,31 @@ Timer::Timer() {
 void Timer::startTimer(int timerInterval) {
   _timerInterval = timerInterval;
   _timerStartTime = millis();
-  //Serial.print("Starting timer for: ");
-  //Serial.print(_timerInterval);
-  //Serial.println(" mS");
 }
-
 
 int Timer::checkTimer() {
-  unsigned long currentTime = millis();
-  if ((_timerInterval != 0)&&(currentTime - _timerStartTime >= _timerInterval)){
-//    Serial.print(remainingTime);
-//    Serial.println(" mS remaining");
-    _timerInterval = 0UL;  //Unused timer
-    return 0;   //Timer Complete
+  if (_timerInterval == 0) {
+    return 1;
   }
-  return 1;   //Timer Active
+
+  unsigned long currentTime = millis();
+  if (currentTime - _timerStartTime >= _timerInterval) {
+    _timerInterval = 0;
+    return 0; // Timer complete
+  }
+
+  return 1; // Timer active
 }
 
-
 int Timer::remainingTime() {
+  if (_timerInterval == 0) {
+    return 0; // Timer not active
+  }
+
   unsigned long currentTime = millis();
-  if ((currentTime - _timerStartTime <= _timerInterval)){
+  if (currentTime - _timerStartTime <= _timerInterval) {
     return _timerInterval - (currentTime - _timerStartTime);
   }
+
   return 0;
 }

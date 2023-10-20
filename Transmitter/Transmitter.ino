@@ -35,13 +35,15 @@ TODO:
 #include "SD.h"
 #include "SPI.h"
 #include "SM_ESP32Pi.h"
+#include "SM_4REL4IN.h"
 SM_LCDAdapter lcd = SM_LCDAdapter();
 
 // REPLACE WITH THE RECEIVER'S MAC Address
 uint8_t broadcastAddress[] = {0x94,0xB9,0x7E,0xF9,0x3A,0x18};
 
-SM_RTD card(0);// RTD Data Acquisition HAT with stack level 0 (no jumpers installed)
-//4 Relay 4 Input card is level 1
+SM_RTD card(0);     //RTD Data Acquisition HAT with stack level 0 (no jumpers installed)
+SM_4REL4IN IO_Card(1); //Four Relays four HV Inputs HAT with stack level 1 (1 Jmper Installed)
+
 
 
 //int debug = 0;    //Turns off addational serial print fuctions.
@@ -71,6 +73,16 @@ enum SystemStatus {
 // Define the current menu option
 //SystemStatus myData.Status = STARTUP;
 
+enum StackLight {
+  OFF,
+  BUZZ,
+  GRN,
+  ORG,
+  RED
+};
+
+
+
 
 esp_now_peer_info_t peerInfo; // Create peer interface
 
@@ -82,6 +94,8 @@ Timer timer[6];
 //int CookTime[6] = {7000,2000,0,0,0,0};    Changed to class Parameter
 //Create a timer for sending data packets every XX miliseconds z
 Timer dataIntervalTimer;
+Timer StackLightOnTimer;
+Timer StackLightOffTimer;
 
 
 
@@ -117,6 +131,14 @@ void setup() {
     return;
   }
 
+  if (card.begin() )
+  {
+    Serial.print("Four Relays four HV Inputs Card detected\n");
+  }
+  else
+  {
+    Serial.print("Four Relays four HV Inputs Card NOT detected!\n");
+  }
 
   // Init ESP-NOW
   if (esp_now_init() != ESP_OK) {
@@ -155,7 +177,8 @@ void setup() {
   lcd.writeBl(20);
 
   dataIntervalTimer.startTimer(dataIntervalTime.Value()); //Start a timer to send data packets at specified intervals.
-
+  StackLightOffTimer.startTimer(1);
+  StackLightOnTimer.startTimer(1);
 }
 
 
@@ -207,7 +230,7 @@ void loop() {
 
   //===DATA TRANSMITTION===//
   if (!dataIntervalTimer.checkTimer()) {   //When send interval is complete.
-  
+  	
     myData.Count ++;    //For error checking.  
     //Can implement a check on the reciever and PC to make sure no transmissions are lost.  
     if (debug) {
@@ -247,8 +270,92 @@ void loop() {
   // Update the menu value based on the current menu option and the rotary encoder
   updateMenuValue();
 
+  manageStackLight(myData.Status);
+  // beepAndFlash(BUZZ, 1000);
+
   
+
 }
+
+
+void manageStackLight(int systemStatus) {
+
+  switch (systemStatus) {
+    case STARTUP:
+      IO_Card.writeRelay(BUZZ, LOW);
+      IO_Card.writeRelay(GRN, LOW);
+      IO_Card.writeRelay(ORG, LOW);
+      IO_Card.writeRelay(RED, HIGH);
+      break;
+    case OVEN_READY:
+      // IO_Card.writeRelay(BUZZ, LOW);
+      // IO_Card.writeRelay(GRN, HIGH);
+      IO_Card.writeRelay(ORG, LOW);
+      IO_Card.writeRelay(RED, LOW);
+      // beepAndFlash(GRN, OFF, 1000);
+      break;
+    case CYCLE_ACTIVE:
+      IO_Card.writeRelay(BUZZ, LOW);
+      IO_Card.writeRelay(GRN, LOW);
+      IO_Card.writeRelay(ORG, HIGH);
+      IO_Card.writeRelay(RED, LOW);
+      break;
+    case TIME_COMPLETE:
+
+      IO_Card.writeRelay(ORG, LOW);
+      IO_Card.writeRelay(RED, LOW);
+      if (StackLightOnTimer.checkTimer()==0) {    //Time comlete
+        IO_Card.writeRelay(GRN, LOW);           //Turn off the stack light
+        IO_Card.writeRelay(BUZZ, LOW);          //Turn off the stack light
+        StackLightOffTimer.startTimer(1000);    //Off duration
+      }
+
+      if (StackLightOffTimer.checkTimer()==0) {   //Time copmlete
+        IO_Card.writeRelay(GRN, HIGH);            //Turn ON the stack light
+        IO_Card.writeRelay(BUZZ, HIGH);           //Turn ON the stack light
+        StackLightOnTimer.startTimer(2000);    
+      } 
+
+
+      // beepAndFlash(BUZZ, GRN, 1000);
+      // for (int i = 0; i < 2; i++) {
+      //   IO_Card.writeRelay(GRN, LOW);
+      //   beepAndFlash(50);
+      //   IO_Card.writeRelay(GRN, HIGH);
+      //   beepAndFlash(50);
+      // }
+      break;
+    case ACKNOWLEDGED:
+      // No action required
+      IO_Card.writeRelay(BUZZ, LOW);
+      IO_Card.writeRelay(GRN, HIGH);
+      IO_Card.writeRelay(ORG, LOW);
+      IO_Card.writeRelay(RED, LOW);
+      break;
+    case TEMPERATURE_DATA_SAVED:
+      // No action required
+      break;
+    case ERROR:
+      IO_Card.writeRelay(RED, HIGH);
+      IO_Card.writeRelay(BUZZ, HIGH);
+      break;
+  }
+}
+
+
+//Toggles on and off the relays. 
+void beepAndFlash(StackLight pin1, StackLight pin2,  int onTime) {
+  if (millis() % onTime < 100)
+    IO_Card.writeRelay(pin1,HIGH);
+    IO_Card.writeRelay(pin2,HIGH);
+  if (millis() % (onTime*2) < 100)
+    IO_Card.writeRelay(pin1, LOW);
+    IO_Card.writeRelay(pin2, LOW);
+
+
+}
+
+
 
 
 //Displaies Remaing Time to the LCD
@@ -256,8 +363,12 @@ void displayRemainingTime() {
   if (millis() % 500 < 50) {
       lcd.setCursor(0, 3);    //Column, Row
       lcd.print(timer[1].remainingTime()/1000);
-      lcd.print(" Seconds");
-  }
+      lcd.print(" Sec");
+      lcd.setCursor(8, 3);    //Column, Row
+      lcd.print("| Status: ");
+      lcd.print(myData.Status);
+
+  } 
 }
  
 /*
