@@ -54,7 +54,7 @@ bool RTD_Check;   //Check to see if the Sequent RTD hat exists.
 // Must match the receiver structure
 typedef struct struct_message {
     int OvenID = 1; // must be unique for each sender board. 
-    int Count = 0;    //Counts the number of transmissions.
+    int Count = 0;    //Counts the number of transmissiogitns.
     int Temps[8];   //Each element is a seperate chamber in the oven?
     int Status = 0;    //
     //int BatchID;     //6-Digit identification number for each batch. 
@@ -176,7 +176,7 @@ void setup() {
   lcd.begin(20, 4);
   lcd.writeBl(20);
 
-  dataIntervalTimer.startTimer(dataIntervalTime.Value()); //Start a timer to send data packets at specified intervals.
+  dataIntervalTimer.startTimer(dataIntervalTime.Value()*1000); //Start a timer to send data packets at specified intervals.
   StackLightOffTimer.startTimer(1);
   StackLightOnTimer.startTimer(1);
 }
@@ -461,8 +461,16 @@ void displayMenuOption() {
         lcd.setCursor(0, 1);
         lcd.print("Data Interval Time");
         lcd.setCursor(0, 2);    //Column, Row
-        lcd.print(dataIntervalTime.Value()/1000);
+        lcd.print(dataIntervalTime.Value());
         lcd.print(" Seconds");
+        break;
+      case NUM_CHANNELS:
+        lcd.setCursor(0, 0);    //Column, Row
+        lcd.print("Menu:");
+        lcd.setCursor(0, 1);
+        lcd.print("Number of Probes");
+        lcd.setCursor(0, 2);    //Column, Row
+        lcd.print(numChannels.Value());
         break;
       case SAVE_PARAM:
         String parameters = "";
@@ -471,6 +479,7 @@ void displayMenuOption() {
         parameters += "temperatureSetpoint: " + String(temperatureSetpoint.Value()) + "\n";
         parameters += "cookTime: " + String(cookTime.Value()) + "\n";
         parameters += "dataIntervalTime: " + String(dataIntervalTime.Value()) + "\n";
+        parameters += "numchannels: " + String(numChannels.Value()) + "\n";
         writeFile(SD, "/parameters.txt", parameters);
         readParameterFile(SD, "/parameters.txt");
         lcd.setCursor(0, 1);
@@ -486,7 +495,7 @@ void displayMenuOption() {
 void updateMenuOption() {  
   if(lcd.readButtonLatch(1)){   //checks for a single button press and release.
     lcd.clear();
-    currentMenuOption = MenuOption((currentMenuOption + 1) % 6);  //Somehow % makes sure we don't go to a non existant menu
+    currentMenuOption = MenuOption((currentMenuOption + 1) % 7);  //Somehow % makes sure we don't go to a non existant menu
   }
 }
 
@@ -509,7 +518,10 @@ void updateMenuValue() {
       
       break;
     case DATA_INTERVAL_TIME:
-      dataIntervalTime.setValue(dataIntervalTime.Value() + rotaryValue*1000);
+      dataIntervalTime.setValue(dataIntervalTime.Value() + rotaryValue);
+      break;
+    case NUM_CHANNELS:
+      numChannels.setValue(numChannels.Value() + rotaryValue);
       break;
   }
 }
