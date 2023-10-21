@@ -176,7 +176,7 @@ void setup() {
   lcd.begin(20, 4);
   lcd.writeBl(20);
 
-  dataIntervalTimer.startTimer(dataIntervalTime.Value()); //Start a timer to send data packets at specified intervals.
+  dataIntervalTimer.startTimer(dataIntervalTime.Value()*1000); //Start a timer to send data packets at specified intervals.
   StackLightOffTimer.startTimer(1);
   StackLightOnTimer.startTimer(1);
 }
@@ -239,6 +239,8 @@ void loop() {
       Serial.print(myData.Count);                      
       Serial.print(", ");
     }
+
+    //===TEMPERATURE CHECKING===//
     for(int i = 0; i < 8; i++){
       if (RTD_Check && !debug)
         myData.Temps[i] = card.readTemp(i+1);   //card.readTemp wants 1 thru 8
@@ -257,9 +259,7 @@ void loop() {
     else
       Serial.println("Error sending the data");
     dataIntervalTimer.startTimer(dataIntervalTime.Value());   //Restart the timer
-  } //Data Send interval 
-  
-  
+  } //Data Send interval  
 
   // Display the current menu option on the LCD screen
   displayMenuOption();
@@ -272,8 +272,6 @@ void loop() {
 
   manageStackLight(myData.Status);
   // beepAndFlash(BUZZ, 1000);
-
-  
 
 }
 
@@ -316,14 +314,6 @@ void manageStackLight(int systemStatus) {
         StackLightOnTimer.startTimer(2000);    
       } 
 
-
-      // beepAndFlash(BUZZ, GRN, 1000);
-      // for (int i = 0; i < 2; i++) {
-      //   IO_Card.writeRelay(GRN, LOW);
-      //   beepAndFlash(50);
-      //   IO_Card.writeRelay(GRN, HIGH);
-      //   beepAndFlash(50);
-      // }
       break;
     case ACKNOWLEDGED:
       // No action required
@@ -341,20 +331,6 @@ void manageStackLight(int systemStatus) {
       break;
   }
 }
-
-
-//Toggles on and off the relays. 
-void beepAndFlash(StackLight pin1, StackLight pin2,  int onTime) {
-  if (millis() % onTime < 100)
-    IO_Card.writeRelay(pin1,HIGH);
-    IO_Card.writeRelay(pin2,HIGH);
-  if (millis() % (onTime*2) < 100)
-    IO_Card.writeRelay(pin1, LOW);
-    IO_Card.writeRelay(pin2, LOW);
-
-
-}
-
 
 
 
@@ -461,8 +437,16 @@ void displayMenuOption() {
         lcd.setCursor(0, 1);
         lcd.print("Data Interval Time");
         lcd.setCursor(0, 2);    //Column, Row
-        lcd.print(dataIntervalTime.Value()/1000);
+        lcd.print(dataIntervalTime.Value());
         lcd.print(" Seconds");
+        break;
+      case NUM_CHANNELS:
+        lcd.setCursor(0, 0);    //Column, Row
+        lcd.print("Menu:");
+        lcd.setCursor(0, 1);
+        lcd.print("Number of tempreture probes");
+        lcd.setCursor(0, 2);
+        lcd.print(numChannels.Value());
         break;
       case SAVE_PARAM:
         String parameters = "";
@@ -471,6 +455,7 @@ void displayMenuOption() {
         parameters += "temperatureSetpoint: " + String(temperatureSetpoint.Value()) + "\n";
         parameters += "cookTime: " + String(cookTime.Value()) + "\n";
         parameters += "dataIntervalTime: " + String(dataIntervalTime.Value()) + "\n";
+        parameters += "numChannels: " + String(numChannels.Value()) + "\n";
         writeFile(SD, "/parameters.txt", parameters);
         readParameterFile(SD, "/parameters.txt");
         lcd.setCursor(0, 1);
@@ -486,17 +471,14 @@ void displayMenuOption() {
 void updateMenuOption() {  
   if(lcd.readButtonLatch(1)){   //checks for a single button press and release.
     lcd.clear();
-    currentMenuOption = MenuOption((currentMenuOption + 1) % 6);  //Somehow % makes sure we don't go to a non existant menu
+    currentMenuOption = MenuOption((currentMenuOption + 1) % 7);  //Somehow % makes sure we don't go to a non existant menu
   }
 }
 
 // Update the oven ID, temperature setpoint, cook time, or data interval time based on the current menu option and the rotary encoder
 void updateMenuValue() {
   lcd.resetEncoder();
-  int rotaryValue = -lcd.readEncoder();
-  //Serial.println(rotaryValue);
-  // delay(10);
-  
+  int rotaryValue = -lcd.readEncoder(); 
   switch (currentMenuOption) {
     case OVEN_ID:
       ovenID.setValue(ovenID.Value() + rotaryValue);
@@ -506,10 +488,12 @@ void updateMenuValue() {
       break;
     case COOK_TIME:
       cookTime.setValue(cookTime.Value() + rotaryValue);
-      
       break;
     case DATA_INTERVAL_TIME:
-      dataIntervalTime.setValue(dataIntervalTime.Value() + rotaryValue*1000);
+      dataIntervalTime.setValue(dataIntervalTime.Value() + rotaryValue);
+      break;
+    case NUM_CHANNELS:
+      numChannels.setValue(numChannels.Value() + rotaryValue);
       break;
   }
 }
@@ -529,7 +513,9 @@ void writeFile(fs::FS &fs, const char * path, String message){
     Serial.println("Write failed");
   }
   file.close();
+  // return;
 }
+
 void appendFile(fs::FS &fs, const char * path, String message){
   if (debug)Serial.printf("Appending to file: %s\n", path);
 
@@ -578,6 +564,8 @@ void readParameterFile(fs::FS &fs, const char * path){
       cookTime.setValue(intValue);
     } else if (parameterName == "dataIntervalTime") {
       dataIntervalTime.setValue(intValue);
+    } else if (parameterName == "numChannels") {
+      numChannels.setValue(intValue);
     }
   }
 
@@ -592,6 +580,9 @@ void readParameterFile(fs::FS &fs, const char * path){
     Serial.println(cookTime.Value());
     Serial.print("dataIntervalTime: ");
     Serial.println(dataIntervalTime.Value());
+    Serial.print("numChannels: ");
+    Serial.println(numChannels.Value());
+    
   }
 
 
