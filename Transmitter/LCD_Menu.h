@@ -54,7 +54,7 @@ Parameter ovenID(1, 1, 12);
 Parameter temperatureSetpoint(225, 0, 500);
 Parameter cookTime(7, 1, 60);                   //Seconds
 Parameter dataIntervalTime(3, 1, 100);          //Seconds
-Parameter numChannels(1,1,6);                    //Number of RTDs/ Thermocouples to monitor
+Parameter numChannels(1,1,8);                    //Number of RTDs/ Thermocouples to monitor
 
 
 #endif

@@ -55,7 +55,7 @@ bool RTD_Check;   //Check to see if the Sequent RTD hat exists.
 typedef struct struct_message {
     int OvenID = 1; // must be unique for each sender board. 
     int Count = 0;    //Counts the number of transmissiogitns.
-    int Temps[8];   //Each element is a seperate chamber in the oven?
+    int Temps[8] = {0,0,0,0,0,0,0,0};   //Each element is a seperate chamber in the oven. 
     int Status = 0;    //
     //int BatchID;     //6-Digit identification number for each batch. 
 } struct_message;
@@ -239,7 +239,8 @@ void loop() {
       Serial.print(myData.Count);                      
       Serial.print(", ");
     }
-    for(int i = 0; i < 8; i++){
+    //Probably need to asign unused myData.Temps to zero
+    for(int i = 0; i < numChannels.Value(); i++){
       if (RTD_Check && !debug)
         myData.Temps[i] = card.readTemp(i+1);   //card.readTemp wants 1 thru 8
       else
@@ -256,7 +257,7 @@ void loop() {
       Serial.println("Sent with success");
     else
       Serial.println("Error sending the data");
-    dataIntervalTimer.startTimer(dataIntervalTime.Value());   //Restart the timer
+    dataIntervalTimer.startTimer(dataIntervalTime.Value()*1000);   //Restart the timer
   } //Data Send interval 
   
   
@@ -288,11 +289,10 @@ void manageStackLight(int systemStatus) {
       IO_Card.writeRelay(RED, HIGH);
       break;
     case OVEN_READY:
-      // IO_Card.writeRelay(BUZZ, LOW);
-      // IO_Card.writeRelay(GRN, HIGH);
+      IO_Card.writeRelay(BUZZ, LOW);
+      IO_Card.writeRelay(GRN, HIGH);
       IO_Card.writeRelay(ORG, LOW);
       IO_Card.writeRelay(RED, LOW);
-      // beepAndFlash(GRN, OFF, 1000);
       break;
     case CYCLE_ACTIVE:
       IO_Card.writeRelay(BUZZ, LOW);
@@ -304,26 +304,22 @@ void manageStackLight(int systemStatus) {
 
       IO_Card.writeRelay(ORG, LOW);
       IO_Card.writeRelay(RED, LOW);
-      if (StackLightOnTimer.checkTimer()==0) {    //Time comlete
+      if (StackLightOnTimer.checkTimer()==0) {  //Time comlete
         IO_Card.writeRelay(GRN, LOW);           //Turn off the stack light
+        delay(10);                              //Seems to be necessary to turn on 2 relays at the same time.
         IO_Card.writeRelay(BUZZ, LOW);          //Turn off the stack light
         StackLightOffTimer.startTimer(1000);    //Off duration
+        break;
       }
 
       if (StackLightOffTimer.checkTimer()==0) {   //Time copmlete
         IO_Card.writeRelay(GRN, HIGH);            //Turn ON the stack light
+        delay(10);                                //Seems to be necessary to turn on 2 relays at the same time.
         IO_Card.writeRelay(BUZZ, HIGH);           //Turn ON the stack light
         StackLightOnTimer.startTimer(2000);    
+        break;
       } 
 
-
-      // beepAndFlash(BUZZ, GRN, 1000);
-      // for (int i = 0; i < 2; i++) {
-      //   IO_Card.writeRelay(GRN, LOW);
-      //   beepAndFlash(50);
-      //   IO_Card.writeRelay(GRN, HIGH);
-      //   beepAndFlash(50);
-      // }
       break;
     case ACKNOWLEDGED:
       // No action required
@@ -341,21 +337,6 @@ void manageStackLight(int systemStatus) {
       break;
   }
 }
-
-
-//Toggles on and off the relays. 
-void beepAndFlash(StackLight pin1, StackLight pin2,  int onTime) {
-  if (millis() % onTime < 100)
-    IO_Card.writeRelay(pin1,HIGH);
-    IO_Card.writeRelay(pin2,HIGH);
-  if (millis() % (onTime*2) < 100)
-    IO_Card.writeRelay(pin1, LOW);
-    IO_Card.writeRelay(pin2, LOW);
-
-
-}
-
-
 
 
 //Displaies Remaing Time to the LCD
@@ -450,7 +431,7 @@ void displayMenuOption() {
         lcd.setCursor(0, 0);    //Column, Row
         lcd.print("Menu:");
         lcd.setCursor(0, 1);
-        lcd.print("Cook Time");
+        lcd.print("Cook Time:");
         lcd.setCursor(0, 2);    //Column, Row
         lcd.print(cookTime.Value());
         lcd.print(" Minutes");
@@ -459,7 +440,7 @@ void displayMenuOption() {
         lcd.setCursor(0, 0);    //Column, Row
         lcd.print("Menu:");
         lcd.setCursor(0, 1);
-        lcd.print("Data Interval Time");
+        lcd.print("Data Interval Time:");
         lcd.setCursor(0, 2);    //Column, Row
         lcd.print(dataIntervalTime.Value());
         lcd.print(" Seconds");
@@ -468,7 +449,7 @@ void displayMenuOption() {
         lcd.setCursor(0, 0);    //Column, Row
         lcd.print("Menu:");
         lcd.setCursor(0, 1);
-        lcd.print("Number of Probes");
+        lcd.print("Number of Probes:");
         lcd.setCursor(0, 2);    //Column, Row
         lcd.print(numChannels.Value());
         break;
@@ -515,7 +496,6 @@ void updateMenuValue() {
       break;
     case COOK_TIME:
       cookTime.setValue(cookTime.Value() + rotaryValue);
-      
       break;
     case DATA_INTERVAL_TIME:
       dataIntervalTime.setValue(dataIntervalTime.Value() + rotaryValue);
