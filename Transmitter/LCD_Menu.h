@@ -12,6 +12,7 @@ enum MenuOption {
   COOK_TIME,          
   DATA_INTERVAL_TIME, //Send data once every DATA_INTERVAL_TIMER
   NUM_CHANNELS,       //Number of RTDs/ Thermocouples to monitor
+  BUZZER_MODE,        //Buzzer On/ Off
   SAVE_PARAM          //Parameters are saved after the menu is cycled back to Home
 };
 
@@ -55,6 +56,7 @@ Parameter temperatureSetpoint(225, 0, 500);
 Parameter cookTime(7, 1, 60);                   //Seconds
 Parameter dataIntervalTime(3, 1, 100);          //Seconds
 Parameter numChannels(1,1,8);                    //Number of RTDs/ Thermocouples to monitor
+Parameter buzzerMode(1,0,1);                    //Buzzer On/ Off
 
 
 #endif

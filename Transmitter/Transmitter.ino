@@ -21,7 +21,10 @@
 /*
 TODO:
   Necessary Changes for impementation
-     - Use external buttons to start stop timers!
+   - Add SD card data logging.
+   - Implement tempreture monitoring incase of low-temp.
+   - Add a Direct to PC mode so no master ESP is needed.
+      - Add file naming for SD card data saving?
 */
 
 
@@ -41,9 +44,9 @@ SM_LCDAdapter lcd = SM_LCDAdapter();
 // REPLACE WITH THE RECEIVER'S MAC Address
 uint8_t broadcastAddress[] = {0x94,0xB9,0x7E,0xF9,0x3A,0x18};
 
-SM_RTD card(0);     //RTD Data Acquisition HAT with stack level 0 (no jumpers installed)
-SM_4REL4IN IO_Card(1); //Four Relays four HV Inputs HAT with stack level 1 (1 Jmper Installed)
 
+SM_4REL4IN IO_Card(0); //Four Relays four HV Inputs HAT with stack level 0 (no Jmper Installed)
+SM_RTD RTD_Card(1);     //RTD Data Acquisition HAT with stack level 1 (no jumpers installed)
 
 
 //int debug = 0;    //Turns off addational serial print fuctions.
@@ -131,9 +134,10 @@ void setup() {
     return;
   }
 
-  if (card.begin() )
+  if (IO_Card.begin() )
   {
     Serial.print("Four Relays four HV Inputs Card detected\n");
+    IO_Card.writeRelay(LOW);
   }
   else
   {
@@ -162,7 +166,7 @@ void setup() {
   }
 
   //RTD Hat check.
-  if (card.begin() ){
+  if (RTD_Card.begin() ){
     Serial.print("RTD HAT detected\n");
     RTD_Check=1;
   }
@@ -188,16 +192,27 @@ void loop() {
   //===TIMING SYSTEM===//
   //Check each of 6 possible timers.
   //Some Transmitters will have multiple Ovens attached.
-  for (int i = 1; i <= 5; i++) {
+  for (int i = 1; i <= numChannels.Value(); i++) {
     
-    //Check each of 6 buttons for a press
-    //This will need updated once physical buttons are implmented
-    if (lcd.readButtonLatch(i+1)){
+
+    //===Handle Start/Stop Button===//
+    // if (lcd.readButtonLatch(i+1)){   //for use with LCD screen buttons
+    if (IO_Card.readOptoAC(1)) {        //Ideal if we can create a readButtonLatch version for relay card
+      while(IO_Card.readOpto(1)){       //Wait for the button to be released. 
+        delay(100);
+      }
+      delay(10);
+     
+     //This switch determines what to do after the Start/Stop button is pressed
       switch(myData.Status) {
-        //Start the timer
-        case STARTUP:   //Pre-heating
-        case OVEN_READY:   //Ready
-        case ACKNOWLEDGED:   //Acknowledged, Ready, or Pre-heating  
+        case STARTUP:                   //Pre-heating
+        /*
+          if(checkTemp(myData.Temps, temperatureSetpoint.Value()));
+            myData.Status = OVEN_READY;
+          break;
+        */
+        case OVEN_READY:                //Ready
+        case ACKNOWLEDGED:              //Acknowledged, Ready, or Pre-heating  
           timer[i].startTimer(cookTime.Value()*1000); //Start the timer.  cookTime is units of seconds.
           myData.Status = 2;
           Serial.print("Timer Started for: ");
@@ -242,11 +257,14 @@ void loop() {
     //Probably need to asign unused myData.Temps to zero
     for(int i = 0; i < numChannels.Value(); i++){
       if (RTD_Check && !debug)
-        myData.Temps[i] = card.readTemp(i+1);   //card.readTemp wants 1 thru 8
+        myData.Temps[i] = RTD_Card.readTemp(i+1);   //RTD_Card.readTemp wants 1 thru 8
       else
         myData.Temps[i] = random(0,50);
       Serial.print(myData.Temps[i]);
       Serial.print(", ");
+    }
+    for(int i = numChannels.Value(); i < numChannels.getMaxVal(); i++){
+      myData.Temps[i] = 0;
     }
     Serial.println();
     // Send message via ESP-NOW
@@ -315,7 +333,7 @@ void manageStackLight(int systemStatus) {
       if (StackLightOffTimer.checkTimer()==0) {   //Time copmlete
         IO_Card.writeRelay(GRN, HIGH);            //Turn ON the stack light
         delay(10);                                //Seems to be necessary to turn on 2 relays at the same time.
-        IO_Card.writeRelay(BUZZ, HIGH);           //Turn ON the stack light
+        IO_Card.writeRelay(BUZZ, buzzerMode.Value());   //Turn ON the stack light if buzzerMode is true.
         StackLightOnTimer.startTimer(2000);    
         break;
       } 
@@ -453,6 +471,14 @@ void displayMenuOption() {
         lcd.setCursor(0, 2);    //Column, Row
         lcd.print(numChannels.Value());
         break;
+      case BUZZER_MODE:
+        lcd.setCursor(0, 0);    //Column, Row
+        lcd.print("Menu:");
+        lcd.setCursor(0, 1);
+        lcd.print("Buzzer On/ Off:");
+        lcd.setCursor(0, 2);    //Column, Row
+        lcd.print(buzzerMode.Value());
+        break;
       case SAVE_PARAM:
         String parameters = "";
         parameters += "ovenID: " + String(ovenID.Value()) + "\n";
@@ -460,7 +486,9 @@ void displayMenuOption() {
         parameters += "temperatureSetpoint: " + String(temperatureSetpoint.Value()) + "\n";
         parameters += "cookTime: " + String(cookTime.Value()) + "\n";
         parameters += "dataIntervalTime: " + String(dataIntervalTime.Value()) + "\n";
-        parameters += "numchannels: " + String(numChannels.Value()) + "\n";
+        parameters += "numChannels: " + String(numChannels.Value()) + "\n";
+        parameters += "buzzerMode: " + String(buzzerMode.Value()) + "\n";
+        Serial.print(parameters); 
         writeFile(SD, "/parameters.txt", parameters);
         readParameterFile(SD, "/parameters.txt");
         lcd.setCursor(0, 1);
@@ -476,7 +504,7 @@ void displayMenuOption() {
 void updateMenuOption() {  
   if(lcd.readButtonLatch(1)){   //checks for a single button press and release.
     lcd.clear();
-    currentMenuOption = MenuOption((currentMenuOption + 1) % 7);  //Somehow % makes sure we don't go to a non existant menu
+    currentMenuOption = MenuOption((currentMenuOption + 1) % 8);  //Somehow % makes sure we don't go to a non existant menu
   }
 }
 
@@ -484,8 +512,11 @@ void updateMenuOption() {
 void updateMenuValue() {
   lcd.resetEncoder();
   int rotaryValue = -lcd.readEncoder();
-  //Serial.println(rotaryValue);
-  // delay(10);
+  // if (rotaryValue > 1)        //Ensure the rotary value is -1,0 or 1
+  //   rotaryValue = 1;
+  // else if (rotaryValue < -1)
+  //   rotaryValue = -1;
+  delay(10);
   
   switch (currentMenuOption) {
     case OVEN_ID:
@@ -502,6 +533,9 @@ void updateMenuValue() {
       break;
     case NUM_CHANNELS:
       numChannels.setValue(numChannels.Value() + rotaryValue);
+      break;
+    case BUZZER_MODE:
+      buzzerMode.setValue(buzzerMode.Value() + rotaryValue);
       break;
   }
 }
@@ -570,6 +604,10 @@ void readParameterFile(fs::FS &fs, const char * path){
       cookTime.setValue(intValue);
     } else if (parameterName == "dataIntervalTime") {
       dataIntervalTime.setValue(intValue);
+    } else if (parameterName == "numChannels") {
+      numChannels.setValue(intValue);
+    } else if (parameterName == "buzzerMode") {
+      buzzerMode.setValue(intValue);
     }
   }
 
@@ -584,6 +622,10 @@ void readParameterFile(fs::FS &fs, const char * path){
     Serial.println(cookTime.Value());
     Serial.print("dataIntervalTime: ");
     Serial.println(dataIntervalTime.Value());
+    Serial.print("numChannels: ");
+    Serial.println(numChannels.Value());
+    Serial.print("buzzerMode: ");
+    Serial.println(buzzerMode.Value());
   }
 
 
