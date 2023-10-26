@@ -39,6 +39,9 @@ sample_frequency = 100                  #Sample Frequency in Hz
 
 ################################################
 
+#TODO
+#Add Sample count to .csv file
+#Add link/ email/ JCS.com to GUI for product support.
 
 #=========================
 #  code to ensure a cleaan exit

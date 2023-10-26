@@ -84,20 +84,16 @@ void OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomingData, int len) 
   //Serial.printf("<Board ID %u: %u bytes.\t >", myData.OvenID, len);
   //Serial.printf("<SampleCount: %u \n >", sampleCount[myData.OvenID-1]);
 
-  //Send data over serial ports.
+
+  //===SEND DATA OVER SERIAL PORTS===//
   Serial.print("<");
   Serial.print(myData.OvenID);
   Serial.print(", ");
   Serial.print(myData.Count);
   Serial.print(", ");
-  for(int i = 0; i < 8; i++){
-  // Update the structures with the new incoming data.  For Synchronizing Delay  card storage
-    //boardsStruct[myData.OvenID-1].Temps[sampleCount[myData.OvenID-1]][i] = myData.Temps[i];
-    //Serial.print(boardsStruct[myData.OvenID-1].Temps[sampleCount[myData.OvenID-1]][i]);
-    
+  for(int i = 0; i < 8; i++){   
     Serial.print(myData.Temps[i]);  
     Serial.print(", ");   
-
   } 
     Serial.print(myData.Status); 
     Serial.print(">");

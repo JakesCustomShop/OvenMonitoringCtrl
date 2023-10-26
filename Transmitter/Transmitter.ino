@@ -76,12 +76,16 @@ enum SystemStatus {
 // Define the current menu option
 //SystemStatus myData.Status = STARTUP;
 
+//int previousStatus = ERROR;   //Anything except STARTUP.
+
+
+//Stacklight relay output values.
 enum StackLight {
-  OFF,
-  BUZZ,
-  GRN,
-  ORG,
-  RED
+  OFF,    //0
+  BUZZ,   //1
+  GRN,    //2
+  ORG,    //3
+  RED     //4
 };
 
 
@@ -189,32 +193,29 @@ void setup() {
  
 void loop() {
  
-  //===TIMING SYSTEM===//
+  //===COOK TIMING SYSTEM===//
   //Check each of 6 possible timers.
   //Some Transmitters will have multiple Ovens attached.
   for (int i = 1; i <= numChannels.Value(); i++) {
     
 
-    //===Handle Start/Stop Button===//
+    //===Handle Start/Stop Button on for timer[i]===//
+    //Should be compatible with up to 4 Start/Stop buttons for 4 ovens.
     // if (lcd.readButtonLatch(i+1)){   //for use with LCD screen buttons
-    if (IO_Card.readOptoAC(1)) {        //Ideal if we can create a readButtonLatch version for relay card
-      while(IO_Card.readOpto(1)){       //Wait for the button to be released. 
+    if (IO_Card.readOptoAC(i)) {        //Ideal if we can create a readButtonLatch version for relay card
+      while(IO_Card.readOpto(i)){       //Wait for the button to be released. 
         delay(100);
       }
-      delay(10);
+      delay(500);                       //Holy cow this elimiates alot of state issues. 
      
+
      //This switch determines what to do after the Start/Stop button is pressed
       switch(myData.Status) {
         case STARTUP:                   //Pre-heating
-        /*
-          if(checkTemp(myData.Temps, temperatureSetpoint.Value()));
-            myData.Status = OVEN_READY;
-          break;
-        */
         case OVEN_READY:                //Ready
         case ACKNOWLEDGED:              //Acknowledged, Ready, or Pre-heating  
           timer[i].startTimer(cookTime.Value()*1000); //Start the timer.  cookTime is units of seconds.
-          myData.Status = 2;
+          myData.Status = CYCLE_ACTIVE;
           Serial.print("Timer Started for: ");
           Serial.println(cookTime.Value());
           //Flashing Green. No buzzer
@@ -232,13 +233,14 @@ void loop() {
           break;
       }
     }
-    
+
     if(!timer[i].checkTimer()){  //When the cooking cycle is complete
-        myData.Status = TIME_COMPLETE;    //Time Complete
-        //Two short Beeps and Two short Green Flashes
-        Serial.println("Cooking cycle is complete");
-        Serial.println("Waiting for Acknowledgement.");
-      }
+      myData.Status = TIME_COMPLETE;    //Time Complete
+      //Two short Beeps and Two short Green Flashes
+      Serial.println("Cooking cycle is complete");
+      Serial.println("Waiting for Acknowledgement.");
+    }
+
     
   }
 
@@ -254,79 +256,106 @@ void loop() {
       Serial.print(myData.Count);                      
       Serial.print(", ");
     }
-    //Probably need to asign unused myData.Temps to zero
     for(int i = 0; i < numChannels.Value(); i++){
-      if (RTD_Check && !debug)
+      if (RTD_Check && !debug){
         myData.Temps[i] = RTD_Card.readTemp(i+1);   //RTD_Card.readTemp wants 1 thru 8
+        //Tempreture checking
+        if (myData.Temps[i] < temperatureSetpoint.Value())
+          myData.Status = STARTUP;
+        else
+          myData.Status = OVEN_READY;
+      }
       else
-        myData.Temps[i] = random(0,50);
-      Serial.print(myData.Temps[i]);
-      Serial.print(", ");
+        myData.Temps[i] = random(220,250);
+      if (debug){
+        Serial.print(myData.Temps[i]);
+        Serial.print(", ");
+      }
+      
     }
+
+    //Asign unused myData.Temps to zero
     for(int i = numChannels.Value(); i < numChannels.getMaxVal(); i++){
       myData.Temps[i] = 0;
     }
-    Serial.println();
+
     // Send message via ESP-NOW
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
-  
-     
     if (result == ESP_OK)
       Serial.println("Sent with success");
     else
       Serial.println("Error sending the data");
     dataIntervalTimer.startTimer(dataIntervalTime.Value()*1000);   //Restart the timer
+
+  
+  SerialSendData(myData);           //Send data over USB Serial Port
   } //Data Send interval 
-  
-  
 
-  // Display the current menu option on the LCD screen
-  displayMenuOption();
-
-  // Update the current menu option
-  updateMenuOption();
-
-  // Update the menu value based on the current menu option and the rotary encoder
-  updateMenuValue();
-
-  manageStackLight(myData.Status);
-  // beepAndFlash(BUZZ, 1000);
-
-  
-
+  manageStackLight(myData.Status);  //If the system status is updated, update the stacklight. 
+  displayMenuOption();              // Display the current menu option on the LCD screen 
+  updateMenuOption();               // Update the current menu option
+  updateMenuValue();                // Update the menu value based on the current menu option and the rotary encoder
 }
+  
+void SerialSendData(struct_message myData) {
 
+  Serial.print("<");
+  Serial.print(myData.OvenID);
+  Serial.print(", ");
+  Serial.print(myData.Count);
+  Serial.print(", ");
+  for(int i = 0; i < 8; i++){   
+    Serial.print(myData.Temps[i]);  
+    Serial.print(", ");   
+  } 
+  Serial.print(myData.Status); 
+  Serial.print(">");
+  Serial.println();
+  //sampleCount[myData.OvenID-1]++;   //Increment the number of rows in the current struct. 
+}
 
 void manageStackLight(int systemStatus) {
 
+  // IO_Card.writeRelay(LOW);
   switch (systemStatus) {
     case STARTUP:
       IO_Card.writeRelay(BUZZ, LOW);
+      delay(10);
       IO_Card.writeRelay(GRN, LOW);
+      delay(10);
       IO_Card.writeRelay(ORG, LOW);
+      delay(10);
       IO_Card.writeRelay(RED, HIGH);
       break;
     case OVEN_READY:
       IO_Card.writeRelay(BUZZ, LOW);
+      delay(10);
       IO_Card.writeRelay(GRN, HIGH);
+      delay(10);
       IO_Card.writeRelay(ORG, LOW);
+      delay(10);
       IO_Card.writeRelay(RED, LOW);
       break;
     case CYCLE_ACTIVE:
       IO_Card.writeRelay(BUZZ, LOW);
+      delay(10);
       IO_Card.writeRelay(GRN, LOW);
+      delay(10);
       IO_Card.writeRelay(ORG, HIGH);
+      delay(10);
       IO_Card.writeRelay(RED, LOW);
       break;
     case TIME_COMPLETE:
-
+      delay(10);
       IO_Card.writeRelay(ORG, LOW);
+      delay(10);
       IO_Card.writeRelay(RED, LOW);
+      delay(10);
       if (StackLightOnTimer.checkTimer()==0) {  //Time comlete
         IO_Card.writeRelay(GRN, LOW);           //Turn off the stack light
         delay(10);                              //Seems to be necessary to turn on 2 relays at the same time.
         IO_Card.writeRelay(BUZZ, LOW);          //Turn off the stack light
-        StackLightOffTimer.startTimer(1000);    //Off duration
+        StackLightOffTimer.startTimer(500);    //Off duration
         break;
       }
 
@@ -334,7 +363,7 @@ void manageStackLight(int systemStatus) {
         IO_Card.writeRelay(GRN, HIGH);            //Turn ON the stack light
         delay(10);                                //Seems to be necessary to turn on 2 relays at the same time.
         IO_Card.writeRelay(BUZZ, buzzerMode.Value());   //Turn ON the stack light if buzzerMode is true.
-        StackLightOnTimer.startTimer(2000);    
+        StackLightOnTimer.startTimer(1000);    
         break;
       } 
 
@@ -342,8 +371,11 @@ void manageStackLight(int systemStatus) {
     case ACKNOWLEDGED:
       // No action required
       IO_Card.writeRelay(BUZZ, LOW);
+      delay(10);
       IO_Card.writeRelay(GRN, HIGH);
+      delay(10);
       IO_Card.writeRelay(ORG, LOW);
+      delay(10);
       IO_Card.writeRelay(RED, LOW);
       break;
     case TEMPERATURE_DATA_SAVED:
@@ -351,6 +383,7 @@ void manageStackLight(int systemStatus) {
       break;
     case ERROR:
       IO_Card.writeRelay(RED, HIGH);
+      delay(10);
       IO_Card.writeRelay(BUZZ, HIGH);
       break;
   }
@@ -556,6 +589,7 @@ void writeFile(fs::FS &fs, const char * path, String message){
   }
   file.close();
 }
+
 void appendFile(fs::FS &fs, const char * path, String message){
   if (debug)Serial.printf("Appending to file: %s\n", path);
 
