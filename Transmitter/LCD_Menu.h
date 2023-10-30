@@ -11,7 +11,8 @@ enum MenuOption {
   TEMPERATURE_SETPOINT,
   COOK_TIME,          
   DATA_INTERVAL_TIME, //Send data once every DATA_INTERVAL_TIMER
-  NUM_CHANNELS,       //Number of RTDs/ Thermocouples to monitor
+  NUM_TC_PER_OVEN,    //Number of Thermocouples to monitor per oven
+  NUM_OVENS,          //Number of Ovens being monitored
   BUZZER_MODE,        //Buzzer On/ Off
   SAVE_PARAM          //Parameters are saved after the menu is cycled back to Home
 };
@@ -51,7 +52,7 @@ public:
 };
 
 //System Defults if no parameter.txt file exists
-Parameter ovenID(1, 1, 12);
+Parameter ovenID(1, 1, 99);                     //The first Oven Number.  Any addational ovens are auto asinged.
 Parameter temperatureSetpoint(225, 0, 500);
 Parameter cookTime(7, 1, 60);                   //Seconds
 Parameter dataIntervalTime(3, 1, 100);          //Seconds

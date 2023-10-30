@@ -51,7 +51,7 @@ SM_TC TC_Card(1);     //TC Data Acquisition HAT with stack level 1 (no jumpers i
 // TC_Card.setType(1,TC_TYPE_J);   //Specify the Thermocouple type
 
 //int debug = 0;    //Turns off addational serial print fuctions.
-int debug = 0;    //Basic Debuging.  Enables random numbers for Tempeture values if TC hat is not detected.
+int debug = 1;    //Basic Debuging.  Enables random numbers for Tempeture values if TC hat is not detected.
 bool TC_Check;   //Check to see if the Sequent TC hat exists.
 
 // Structure example to send data
@@ -196,10 +196,8 @@ void setup() {
  
 void loop() {
  
-  //===COOK TIMING SYSTEM===//
-
-  
-  //Check each of 6 possible ovens for timer complete.
+  //===COOK TIMING SYSTEM===// 
+  //Continusuly checks each of 6 possible ovens for timer complete.
   //Some Transmitters will have multiple Ovens attached.
   for (int i = 1; i <= numOvens.Value(); i++) {
     myData.OvenID=ovenID.Value()+i-1;   //For systes with multiple ovens, assing myData.ovenID a unique value. 
@@ -253,50 +251,58 @@ void loop() {
   }
 
 
+
   //===DATA TRANSMITTION===//
+  //Runs only when the transmission interval has completed.
+  //Loops for each connected Oven and each TC on each oven.
   if (!dataIntervalTimer.checkTimer()) {   //When send interval is complete.
-  	
-    myData.Count ++;    //For error checking.  
-    //Can implement a check on the reciever and PC to make sure no transmissions are lost.  
-    if (debug) {
-      Serial.print(myData.OvenID);                      
-      Serial.print(", ");
-      Serial.print(myData.Count);                      
-      Serial.print(", ");
-    }
-    for(int i = 0; i < numTCperOven.Value(); i++){
-      if (TC_Check && !debug){
-        myData.Temps[i] = TC_Card.readTemp(i+1);   //TC_Card.readTemp wants 1 thru 8
-        //Tempreture checking
-        if (myData.Temps[i] < temperatureSetpoint.Value())
-          myData.Status = STARTUP;
-        else
-          myData.Status = OVEN_READY;
-      }
-      else
-        myData.Temps[i] = random(220,250);
-      if (debug){
-        Serial.print(myData.Temps[i]);
+    for (int j = 1; j<= numOvens.Value(); j++){
+      myData.OvenID=ovenID.Value()+j-1;   //For systes with multiple ovens, assiging myData.ovenID a unique value. 
+                                          //This allows the PC data log to distingush between different ovens
+                                          //connected to the same transmitter.
+      
+      myData.Count ++;    //For error checking.  
+      //Can implement a check on the reciever and PC to make sure no transmissions are lost.  
+      if (debug) {
+        Serial.print(myData.OvenID);                      
+        Serial.print(", ");
+        Serial.print(myData.Count);                      
         Serial.print(", ");
       }
-      
-    }
+      for(int i = 0; i < numTCperOven.Value(); i++){
+        if (TC_Check && !debug){
+          myData.Temps[i] = TC_Card.readTemp(i+1);   //TC_Card.readTemp wants 1 thru 8
+          //Tempreture checking
+            if (myData.Temps[i] < temperatureSetpoint.Value())
+            myData.Status = STARTUP;
+          else
+            myData.Status = OVEN_READY;
+        }
+        else
+          myData.Temps[i] = random(220,250);
+        if (debug){
+          Serial.print(myData.Temps[i]);
+          Serial.print(", ");
+        }
+        
+      }
 
-    //Asign unused myData.Temps to zero
-    for(int i = numTCperOven.Value(); i < numTCperOven.getMaxVal(); i++){
-      myData.Temps[i] = 0;
-    }
+      //Asign unused myData.Temps to zero
+      for(int i = numTCperOven.Value(); i < numTCperOven.getMaxVal(); i++){
+        myData.Temps[i] = 0;
+      }
 
-    // Send message via ESP-NOW
-    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
-    if (result == ESP_OK)
-      Serial.println("Sent with success");
-    else
-      Serial.println("Error sending the data");
-    dataIntervalTimer.startTimer(dataIntervalTime.Value()*1000);   //Restart the timer
+      // Send message via ESP-NOW
+      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
+      if (result == ESP_OK)
+        Serial.println("Sent with success");
+      else
+        Serial.println("Error sending the data");
+      dataIntervalTimer.startTimer(dataIntervalTime.Value()*1000);   //Restart the timer
 
-  
-    SerialSendData(myData);           //Send data over USB Serial Port
+    
+      SerialSendData(myData);           //Send data over USB Serial Port.  Sends a packet for ea. oven
+    }//Loop for each oven
   } //Data Send interval 
 
   manageStackLight(myData.Status);  //If the system status is updated, update the stacklight. 
@@ -321,6 +327,7 @@ void SerialSendData(struct_message myData) {
   Serial.println();
   //sampleCount[myData.OvenID-1]++;   //Increment the number of rows in the current struct. 
 }
+
 
 void manageStackLight(int systemStatus) {
 
@@ -504,7 +511,7 @@ void displayMenuOption() {
         lcd.print(dataIntervalTime.Value());
         lcd.print(" Seconds");
         break;
-      case NUM_CHANNELS:
+      case NUM_TC_PER_OVEN:
         lcd.setCursor(0, 0);    //Column, Row
         lcd.print("Menu:");
         lcd.setCursor(0, 1);
@@ -512,14 +519,14 @@ void displayMenuOption() {
         lcd.setCursor(0, 2);    //Column, Row
         lcd.print(numTCperOven.Value());
         break;
-      // case NUM_OVENS:
-      //   lcd.setCursor(0, 0);    //Column, Row
-      //   lcd.print("Menu:");
-      //   lcd.setCursor(0, 1);
-      //   lcd.print("Number of Ovens:");
-      //   lcd.setCursor(0, 2);    //Column, Row
-      //   lcd.print(numOvens.Value());
-      //   break;
+      case NUM_OVENS:
+        lcd.setCursor(0, 0);    //Column, Row
+        lcd.print("Menu:");
+        lcd.setCursor(0, 1);
+        lcd.print("Number of Ovens:");
+        lcd.setCursor(0, 2);    //Column, Row
+        lcd.print(numOvens.Value());
+        break;
       case BUZZER_MODE:
         lcd.setCursor(0, 0);    //Column, Row
         lcd.print("Menu:");
@@ -536,6 +543,7 @@ void displayMenuOption() {
         parameters += "cookTime: " + String(cookTime.Value()) + "\n";
         parameters += "dataIntervalTime: " + String(dataIntervalTime.Value()) + "\n";
         parameters += "numTCperOven: " + String(numTCperOven.Value()) + "\n";
+        parameters += "numOvens: " + String(numOvens.Value()) + "\n";
         parameters += "buzzerMode: " + String(buzzerMode.Value()) + "\n";
         Serial.print(parameters); 
         writeFile(SD, "/parameters.txt", parameters);
@@ -553,11 +561,12 @@ void displayMenuOption() {
 void updateMenuOption() {  
   if(lcd.readButtonLatch(1)){   //checks for a single button press and release.
     lcd.clear();
-    currentMenuOption = MenuOption((currentMenuOption + 1) % 8);  //Somehow % makes sure we don't go to a non existant menu
+    currentMenuOption = MenuOption((currentMenuOption + 1) % 9);  //Somehow % makes sure we don't go to a non existant menu
   }
 }
 
 // Update the oven ID, temperature setpoint, cook time, or data interval time based on the current menu option and the rotary encoder
+// Does not update the transmitted data packet.
 void updateMenuValue() {
   lcd.resetEncoder();
   int rotaryValue = -lcd.readEncoder();
@@ -580,8 +589,11 @@ void updateMenuValue() {
     case DATA_INTERVAL_TIME:
       dataIntervalTime.setValue(dataIntervalTime.Value() + rotaryValue);
       break;
-    case NUM_CHANNELS:
+    case NUM_TC_PER_OVEN:
       numTCperOven.setValue(numTCperOven.Value() + rotaryValue);
+      break;
+    case NUM_OVENS:
+      numOvens.setValue(numOvens.Value() + rotaryValue);
       break;
     case BUZZER_MODE:
       buzzerMode.setValue(buzzerMode.Value() + rotaryValue);
@@ -656,6 +668,8 @@ void readParameterFile(fs::FS &fs, const char * path){
       dataIntervalTime.setValue(intValue);
     } else if (parameterName == "numTCperOven") {
       numTCperOven.setValue(intValue);
+    } else if (parameterName == "numOvens") {
+      numOvens.setValue(intValue);
     } else if (parameterName == "buzzerMode") {
       buzzerMode.setValue(intValue);
     }
@@ -674,6 +688,8 @@ void readParameterFile(fs::FS &fs, const char * path){
     Serial.println(dataIntervalTime.Value());
     Serial.print("numTCperOven: ");
     Serial.println(numTCperOven.Value());
+    Serial.print("numOvens: ");
+    Serial.println(numOvens.Value());
     Serial.print("buzzerMode: ");
     Serial.println(buzzerMode.Value());
   }
