@@ -55,7 +55,8 @@ Parameter ovenID(1, 1, 12);
 Parameter temperatureSetpoint(225, 0, 500);
 Parameter cookTime(7, 1, 60);                   //Seconds
 Parameter dataIntervalTime(3, 1, 100);          //Seconds
-Parameter numChannels(1,1,8);                    //Number of RTDs/ Thermocouples to monitor
+Parameter numTCperOven(1,1,8);                  //Number of RTDs/ Thermocouples per Oven
+Parameter numOvens(4,1,6);                      //Number of Ovens connected to each Transmitter
 Parameter buzzerMode(1,0,1);                    //Buzzer On/ Off
 
 

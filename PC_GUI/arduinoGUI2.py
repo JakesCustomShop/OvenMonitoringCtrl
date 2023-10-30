@@ -11,6 +11,7 @@ import atexit
 import numpy as np
 import configparser
 from pathlib import Path
+from PIL import ImageTk, Image
 
 
 
@@ -203,6 +204,8 @@ def mainScreen():
 	browse_dir_button = tk.Button(masterframe, text="Change File Save Directory", command=get_dir, bg='green', fg='white', font=('helvetica', 12, 'bold'))
 
 	save_config_button = tk.Button(masterframe, text="Save Config", command=save_config, bg='green', fg='white', font=('helvetica', 12, 'bold'))
+	JCS_com_button= tk.Button(masterframe, text="Jake's Custom Shop, LLC", command=open_JCS_com, bd=0, fg='black', font=('helvetica', 10, 'underline'), justify='left')
+	support_button = tk.Button(masterframe, text="Support", command=open_support_link, bd=0, fg='black', font=('helvetica', 10, 'underline'), justify='right')
 
 	#testButton = tk.Button(masterframe, text="Test Button")
 
@@ -212,7 +215,7 @@ def mainScreen():
 	SpacerB = tk.Label(masterframe, width = 5, height = 2) 
 	SpacerC = tk.Label(masterframe, width = 5, height = 2) 
 	error_label = tk.Label(masterframe, textvariable = error_msg) 
-	
+
 	 
 	SpacerA.grid(row = 0, column = 0, columnspan=5)
 	dir_name_label.grid(row = 1, column = 0, columnspan=5)
@@ -223,8 +226,17 @@ def mainScreen():
 
 	cD.build_table(masterframe)
 	error_label.grid(row = 7, column = 0, columnspan=5)
+	JCS_com_button.grid(row=8, column=0, columnspan=2)
+	support_button.grid(row=8, column=2, columnspan=2)
 
 
+
+def open_support_link():
+    import webbrowser
+    webbrowser.open("https://jakescustomshop.com/contact.html")
+def open_JCS_com():
+    import webbrowser
+    webbrowser.open("https://jakescustomshop.com")
 
 
 

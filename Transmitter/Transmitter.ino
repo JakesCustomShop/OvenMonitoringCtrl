@@ -4,12 +4,11 @@
     August, 2023
 
     Built for Sequent Microsystems ESP-Pi 
-    Reads Tempature data from up to 8 RTDs on the Sequent Microsystems RTD HAT.
+    Reads Tempature data from up to 8 TCs on the Sequent Microsystems TC HAT.
     Transmits Tempature data to a reciever via ESP_now wireless protocall.
     Displays 6  values to a 20x4 Sequent Microsystem LCD adapter HAT.
 
     Notes: 
-     - Must use 3-Wire RTD or jumper on RTD DAQ. inputs
      - For use with Reciever3.ino
      - Will work with a plain ol' ESP32 for testing purposes.  
      - Adding a menu option requres update to updateMenuOption() 
@@ -25,13 +24,15 @@ TODO:
    - Implement tempreture monitoring incase of low-temp.
    - Add a Direct to PC mode so no master ESP is needed.
       - Add file naming for SD card data saving?
+   - Need to make multiple instances of myData.  (1 for each oven monitored)  
 */
 
 
 #include "Timer.h"    //Custom Header and C++ file for the Timing System
 #include <esp_now.h>
 #include <WiFi.h>
-#include "SM_RTD.h"
+//#include "SM_RTD.h"
+#include "SM_TC.h"
 #include "SM_LCDAdapter.h"
 #include "LCD_Menu.h"
 #include "FS.h"
@@ -46,12 +47,12 @@ uint8_t broadcastAddress[] = {0x94,0xB9,0x7E,0xF9,0x3A,0x18};
 
 
 SM_4REL4IN IO_Card(0); //Four Relays four HV Inputs HAT with stack level 0 (no Jmper Installed)
-SM_RTD RTD_Card(1);     //RTD Data Acquisition HAT with stack level 1 (no jumpers installed)
-
+SM_TC TC_Card(1);     //TC Data Acquisition HAT with stack level 1 (no jumpers installed)
+// TC_Card.setType(1,TC_TYPE_J);   //Specify the Thermocouple type
 
 //int debug = 0;    //Turns off addational serial print fuctions.
-int debug = 1;    //Basic Debuging.  Enables random numbers for Tempeture values if RTD hat is not detected.
-bool RTD_Check;   //Check to see if the Sequent RTD hat exists.
+int debug = 0;    //Basic Debuging.  Enables random numbers for Tempeture values if TC hat is not detected.
+bool TC_Check;   //Check to see if the Sequent TC hat exists.
 
 // Structure example to send data
 // Must match the receiver structure
@@ -62,7 +63,15 @@ typedef struct struct_message {
     int Status = 0;    //
     //int BatchID;     //6-Digit identification number for each batch. 
 } struct_message;
-struct_message myData;        // Create a struct_message called myData
+
+//Change myData to ovenData[i]?
+// struct_message ovenData1;        // Create a struct_message called myData
+// struct_message ovenData2;        // Create a struct_message called myData
+// struct_message ovenData3;        // Create a struct_message called myData
+// struct_message ovenData4;        // Create a struct_message called myData
+// struct_message ovenData = {ovenData1, ovenData2, ovenData3, ovenData4};
+
+struct_message myData;
 
 enum SystemStatus {
   STARTUP,
@@ -89,11 +98,7 @@ enum StackLight {
 };
 
 
-
-
 esp_now_peer_info_t peerInfo; // Create peer interface
-
-
 
 //===Initilize timers for tracking cook time===//
 //A timer interval of 0 disables the timer
@@ -112,8 +117,6 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
 }
  
-
-
 
 void setup() {
    
@@ -169,14 +172,14 @@ void setup() {
     return;
   }
 
-  //RTD Hat check.
-  if (RTD_Card.begin() ){
-    Serial.print("RTD HAT detected\n");
-    RTD_Check=1;
+  //TC Hat check.
+  if (TC_Card.begin() ){
+    Serial.print("TC HAT detected\n");
+    TC_Check=true;
   }
   else{
-    Serial.print("RTD HAT NOT detected!\n");
-    RTD_Check=0;
+    Serial.print("TC HAT NOT detected!\n");
+    TC_Check=false;
   }
 
   //===LCD SCREEN===//
@@ -194,20 +197,25 @@ void setup() {
 void loop() {
  
   //===COOK TIMING SYSTEM===//
-  //Check each of 6 possible timers.
+
+  
+  //Check each of 6 possible ovens for timer complete.
   //Some Transmitters will have multiple Ovens attached.
-  for (int i = 1; i <= numChannels.Value(); i++) {
-    
+  for (int i = 1; i <= numOvens.Value(); i++) {
+    myData.OvenID=ovenID.Value()+i-1;   //For systes with multiple ovens, assing myData.ovenID a unique value. 
+                                        //This allows the PC data log to distingush between different ovens
+                                        //connected to the same transmitter.
 
     //===Handle Start/Stop Button on for timer[i]===//
     //Should be compatible with up to 4 Start/Stop buttons for 4 ovens.
-    // if (lcd.readButtonLatch(i+1)){   //for use with LCD screen buttons
-    if (IO_Card.readOptoAC(i)) {        //Ideal if we can create a readButtonLatch version for relay card
+    if (lcd.readButtonLatch(i+1)){   //for use with LCD screen buttons
+    // if (IO_Card.readOptoAC(i)) {        //Ideal if we can create a readButtonLatch version for relay card
       while(IO_Card.readOpto(i)){       //Wait for the button to be released. 
         delay(100);
       }
       delay(500);                       //Holy cow this elimiates alot of state issues. 
-     
+      Serial.print("Button Number: ");
+      Serial.println(i);
 
      //This switch determines what to do after the Start/Stop button is pressed
       switch(myData.Status) {
@@ -256,9 +264,9 @@ void loop() {
       Serial.print(myData.Count);                      
       Serial.print(", ");
     }
-    for(int i = 0; i < numChannels.Value(); i++){
-      if (RTD_Check && !debug){
-        myData.Temps[i] = RTD_Card.readTemp(i+1);   //RTD_Card.readTemp wants 1 thru 8
+    for(int i = 0; i < numTCperOven.Value(); i++){
+      if (TC_Check && !debug){
+        myData.Temps[i] = TC_Card.readTemp(i+1);   //TC_Card.readTemp wants 1 thru 8
         //Tempreture checking
         if (myData.Temps[i] < temperatureSetpoint.Value())
           myData.Status = STARTUP;
@@ -275,7 +283,7 @@ void loop() {
     }
 
     //Asign unused myData.Temps to zero
-    for(int i = numChannels.Value(); i < numChannels.getMaxVal(); i++){
+    for(int i = numTCperOven.Value(); i < numTCperOven.getMaxVal(); i++){
       myData.Temps[i] = 0;
     }
 
@@ -288,7 +296,7 @@ void loop() {
     dataIntervalTimer.startTimer(dataIntervalTime.Value()*1000);   //Restart the timer
 
   
-  SerialSendData(myData);           //Send data over USB Serial Port
+    SerialSendData(myData);           //Send data over USB Serial Port
   } //Data Send interval 
 
   manageStackLight(myData.Status);  //If the system status is updated, update the stacklight. 
@@ -500,10 +508,18 @@ void displayMenuOption() {
         lcd.setCursor(0, 0);    //Column, Row
         lcd.print("Menu:");
         lcd.setCursor(0, 1);
-        lcd.print("Number of Probes:");
+        lcd.print("Num T.C's per Oven:");
         lcd.setCursor(0, 2);    //Column, Row
-        lcd.print(numChannels.Value());
+        lcd.print(numTCperOven.Value());
         break;
+      // case NUM_OVENS:
+      //   lcd.setCursor(0, 0);    //Column, Row
+      //   lcd.print("Menu:");
+      //   lcd.setCursor(0, 1);
+      //   lcd.print("Number of Ovens:");
+      //   lcd.setCursor(0, 2);    //Column, Row
+      //   lcd.print(numOvens.Value());
+      //   break;
       case BUZZER_MODE:
         lcd.setCursor(0, 0);    //Column, Row
         lcd.print("Menu:");
@@ -519,7 +535,7 @@ void displayMenuOption() {
         parameters += "temperatureSetpoint: " + String(temperatureSetpoint.Value()) + "\n";
         parameters += "cookTime: " + String(cookTime.Value()) + "\n";
         parameters += "dataIntervalTime: " + String(dataIntervalTime.Value()) + "\n";
-        parameters += "numChannels: " + String(numChannels.Value()) + "\n";
+        parameters += "numTCperOven: " + String(numTCperOven.Value()) + "\n";
         parameters += "buzzerMode: " + String(buzzerMode.Value()) + "\n";
         Serial.print(parameters); 
         writeFile(SD, "/parameters.txt", parameters);
@@ -565,7 +581,7 @@ void updateMenuValue() {
       dataIntervalTime.setValue(dataIntervalTime.Value() + rotaryValue);
       break;
     case NUM_CHANNELS:
-      numChannels.setValue(numChannels.Value() + rotaryValue);
+      numTCperOven.setValue(numTCperOven.Value() + rotaryValue);
       break;
     case BUZZER_MODE:
       buzzerMode.setValue(buzzerMode.Value() + rotaryValue);
@@ -638,8 +654,8 @@ void readParameterFile(fs::FS &fs, const char * path){
       cookTime.setValue(intValue);
     } else if (parameterName == "dataIntervalTime") {
       dataIntervalTime.setValue(intValue);
-    } else if (parameterName == "numChannels") {
-      numChannels.setValue(intValue);
+    } else if (parameterName == "numTCperOven") {
+      numTCperOven.setValue(intValue);
     } else if (parameterName == "buzzerMode") {
       buzzerMode.setValue(intValue);
     }
@@ -656,8 +672,8 @@ void readParameterFile(fs::FS &fs, const char * path){
     Serial.println(cookTime.Value());
     Serial.print("dataIntervalTime: ");
     Serial.println(dataIntervalTime.Value());
-    Serial.print("numChannels: ");
-    Serial.println(numChannels.Value());
+    Serial.print("numTCperOven: ");
+    Serial.println(numTCperOven.Value());
     Serial.print("buzzerMode: ");
     Serial.println(buzzerMode.Value());
   }
