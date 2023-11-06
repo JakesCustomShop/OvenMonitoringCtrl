@@ -54,6 +54,7 @@ SM_TC TC_Card(2);     //TC Data Acquisition HAT with stack level 1 (no jumpers i
 int debug = 1;    //Basic Debuging.  Enables random numbers for Tempeture values if TC hat is not detected.
 bool TC_Check;   //Check to see if the Sequent TC hat exists.
 int status[8] = {0,0,0,0,0,0,0,0};   //Status byte for each oven.
+int prev_status[8] = {1,1,1,1,1,1,1,1};   //Previous status for determinging when to update a stack light. Anything except STARTUP?
 
 // Structure example to send data
 // Must match the receiver structure
@@ -81,7 +82,6 @@ enum SystemStatus {
 // Define the current menu option
 //SystemStatus myData.Status = STARTUP;
 
-//int previousStatus = ERROR;   //Anything except STARTUP.
 
 
 //Stacklight relay output values.
@@ -277,11 +277,6 @@ void loop() {
         }
         else
           myData.Temps[i] = random(220,250);
-        if (debug){
-          Serial.print(myData.Temps[i]);
-          Serial.print(", ");
-        }
-        
       }
 
       //Asign unused myData.Temps to zero
@@ -304,9 +299,16 @@ void loop() {
     }//Loop for each oven
   } //Data Send interval 
   
-  // for (int j = 0; j< numOvens.Value(); j++){
-  manageStackLight(status[0], 0);  //If the system status is updated, update the stacklight. 
-  // }
+  
+  //Check each oven to see if the status has been updated.
+  //Status == TIME_COMPLETE blinks the GRN light and thus requries more calls to mangeSatckLight().
+  for (int j = 0; j< numOvens.Value(); j++){
+    if (prev_status[j] != status[j] || status[j] == TIME_COMPLETE) {
+      manageStackLight(status[0], j);  //If the system status is updated, update the stacklight. 
+      prev_status[j] = status[j];
+    }
+  }
+  
   displayMenuOption();              // Display the current menu option on the LCD screen. Updates countdown timer. 
   updateMenuOption();               // Update the current menu option
   updateMenuValue();                // Update the menu value based on the current menu option and the rotary encoder
@@ -326,7 +328,6 @@ void SerialSendData(struct_message myData) {
   Serial.print(myData.Status); 
   Serial.print(">");
   Serial.println();
-  //sampleCount[myData.OvenID-1]++;   //Increment the number of rows in the current struct. 
 }
 
 
@@ -334,7 +335,7 @@ void SerialSendData(struct_message myData) {
 /*
   @brief Lookup function to determine which relay to turn on
   @param oven Oven number 0-3. Should be expanded to 8 ovens for future
-  @param color enum StacklightBUZZ, GRN, ORG, or RED.
+  @param color enum Stacklight BUZZ(1), GRN(2), ORG(3), or RED(4).
   @param state LOW or HIGH  
 */
 void manageRelays(byte oven, StackLight color, bool state) {
@@ -347,18 +348,18 @@ void manageRelays(byte oven, StackLight color, bool state) {
       {{1,1},{1,2},{1,3},{1,4}},  //Stacklight 2
       {{1,5},{1,6},{1,7},{1,8}}}; //Stacklight 3
   
-  int card = card_pin_matrix[oven][color][0];
-  int pin = card_pin_matrix[oven][color][1];
+  int card = card_pin_matrix[oven][color-1][0];   //StackLight Color is inedxed at 1
+  int pin = card_pin_matrix[oven][color-1][1];
 
   Serial.printf("Card: %d, Pin: %d", card, pin);
   Serial.println();
 
   switch (card) 
   {
-  case 0:
+  case 0:   //Relay Card 0
     IO_Card0.writeRelay(pin, state);
     break;
-  case 1:
+  case 1:   //Relay Card 1
     IO_Card1.writeRelay(pin, state);
     break;
   default:

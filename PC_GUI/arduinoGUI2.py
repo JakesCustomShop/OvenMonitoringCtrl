@@ -214,7 +214,7 @@ def mainScreen():
 	SpacerA = tk.Label(masterframe, width = 5, height = 2) 
 	SpacerB = tk.Label(masterframe, width = 5, height = 2) 
 	SpacerC = tk.Label(masterframe, width = 5, height = 2) 
-	error_label = tk.Label(masterframe, textvariable = error_msg) 
+	error_label = tk.Label(masterframe)#, textvariable = error_msg) 
 
 	 
 	SpacerA.grid(row = 0, column = 0, columnspan=5)
