@@ -30,6 +30,7 @@ TODO:
 #include "Timer.h"    //Custom Header and C++ file for the Timing System
 #include <esp_now.h>
 #include <WiFi.h>
+
 //#include "SM_RTD.h"
 #include "SM_TC.h"
 #include "SM_LCDAdapter.h"
@@ -39,15 +40,17 @@ TODO:
 #include "SPI.h"
 #include "SM_ESP32Pi.h"
 #include "SM_4REL4IN.h"
+#include "SM_8relay.h"
 SM_LCDAdapter lcd = SM_LCDAdapter();
 
 // REPLACE WITH THE RECEIVER'S MAC Address
 uint8_t broadcastAddress[] = {0x94,0xB9,0x7E,0xF9,0x3A,0x18};
 
 
-SM_4REL4IN IO_Card0(0); //Four Relays four HV Inputs HAT with stack level 0 (no Jmper Installed)
-SM_4REL4IN IO_Card1(1); //Eight Relays HAT with stack level 1 (1 Jmper Installed)
-SM_TC TC_Card(2);     //TC Data Acquisition HAT with stack level 1 (no jumpers installed)
+SM_4REL4IN four_IO_card0(0); //Four Relays four HV Inputs HAT with stack level 0 (no Jmper Installed)
+SM_TC TC_Card(1);     //TC Data Acquisition HAT with stack level 1 (no jumpers installed)
+SM_8relay eight_relay_card2 = SM_8relay() ; //Eight Relays HAT with stack level 2
+SM_8relay eight_relay_card3 = SM_8relay(); //Eight Relays HAT with stack level 3 
 // TC_Card.setType(1,TC_TYPE_J);   //Specify the Thermocouple type
 
 //int debug = 0;    //Turns off addational serial print fuctions.
@@ -138,10 +141,31 @@ void setup() {
     return;
   }
 
-  if (IO_Card0.begin() )
+//4Relay 4 HV
+  if (four_IO_card0.begin() )
   {
     Serial.print("Four Relays four HV Inputs Card detected\n");
-    IO_Card0.writeRelay(LOW);
+    four_IO_card0.writeRelay(LOW);
+  }
+  else
+  {
+    Serial.print("Four Relays four HV Inputs Card NOT detected!\n");
+  }
+  //8Relay stack level 2
+  if (eight_relay_card2.begin(2) )
+  {
+    Serial.print("Four Relays four HV Inputs Card detected\n");
+    // eight_relay_card2.writeChannel(LOW);
+  }
+  else
+  {
+    Serial.print("Four Relays four HV Inputs Card NOT detected!\n");
+  }
+  //8relay stack level 3
+  if (eight_relay_card3.begin(3) )
+  {
+    Serial.print("Four Relays four HV Inputs Card detected\n");
+    // eight_relay_card3.writeChannel(LOW);
   }
   else
   {
@@ -204,8 +228,8 @@ void loop() {
     //===Handle Start/Stop Button on for timer[i]===//
     //Should be compatible with up to 4 Start/Stop buttons for 4 ovens.
     if (lcd.readButtonLatch(j+2)){   //for use with LCD screen buttons
-    // if (IO_Card0.readOptoAC(i)) {        //Ideal if we can create a readButtonLatch version for relay card
-      while(IO_Card0.readOpto(j+1)){       //Wait for the button to be released. SM IO are indexed at 1
+    // if (four_IO_card0.readOptoAC(i)) {        //Ideal if we can create a readButtonLatch version for relay card
+      while(four_IO_card0.readOpto(j+1)){       //Wait for the button to be released. SM IO are indexed at 1
         delay(100);
       }
       delay(500);                       //Holy cow this elimiates alot of state issues. 
@@ -304,7 +328,7 @@ void loop() {
   //Status == TIME_COMPLETE blinks the GRN light and thus requries more calls to mangeSatckLight().
   for (int j = 0; j< numOvens.Value(); j++){
     if (prev_status[j] != status[j] || status[j] == TIME_COMPLETE) {
-      manageStackLight(status[0], j);  //If the system status is updated, update the stacklight. 
+      manageStackLight(status[j], j);  //If the system status is updated, update the stacklight. 
       prev_status[j] = status[j];
     }
   }
@@ -338,29 +362,30 @@ void SerialSendData(struct_message myData) {
   @param color enum Stacklight BUZZ(1), GRN(2), ORG(3), or RED(4).
   @param state LOW or HIGH  
 */
-void manageRelays(byte oven, StackLight color, bool state) {
+void manageRelays(byte oven, int color, bool state) {
 
-  //[Realy Card, Pin]
+  //{Relay Card, PinNumber}
   int card_pin_matrix[4][4][2] =          
-      //BUZZ, RED, YEL,  GRN
-    { {{0,1},{0,2},{0,3},{0,4}},  //Stacklight 0
-      {{0,5},{0,6},{0,7},{0,8}},  //Stacklight 1
-      {{1,1},{1,2},{1,3},{1,4}},  //Stacklight 2
-      {{1,5},{1,6},{1,7},{1,8}}}; //Stacklight 3
+      //BUZZ, GRN, ORG,  RED
+    { {{0,1},{0,2},{0,3},{0,4},},  //Card 2, Oven 0
+      {{0,5},{0,6},{0,7},{0,8},},  //Card 2, Oven 1
+      {{1,1},{1,2},{1,3},{1,4},},  //Card 3, Oven 2
+      {{1,5},{1,6},{1,7},{1,8},},}; //Card 3, Oven 3
+
   
   int card = card_pin_matrix[oven][color-1][0];   //StackLight Color is inedxed at 1
   int pin = card_pin_matrix[oven][color-1][1];
-
-  Serial.printf("Card: %d, Pin: %d", card, pin);
+  Serial.printf("Oven: %d, Color: %d", oven, color);
+  Serial.printf("Card: %d, Pin: %d, State: %d", card, pin, state);
   Serial.println();
 
   switch (card) 
   {
   case 0:   //Relay Card 0
-    IO_Card0.writeRelay(pin, state);
+    eight_relay_card2.writeChannel(pin, state);    
     break;
   case 1:   //Relay Card 1
-    IO_Card1.writeRelay(pin, state);
+    eight_relay_card3.writeChannel(pin, state);
     break;
   default:
     break;
@@ -407,7 +432,7 @@ void manageStackLight(byte systemStatus, byte oven) {
       //delay(10);
       manageRelays(oven, RED, LOW);
       //delay(10);
-      if (StackLightOnTimer.checkTimer()==0) {  //Time comlete
+      if (StackLightOnTimers.checkTimer()==0) {  //Time comlete
         manageRelays(oven, GRN, LOW);           //Turn off the stack light
         //delay(10);                              //Seems to be necessary to turn on 2 relays at the same time.
         manageRelays(oven, BUZZ, LOW);          //Turn off the stack light
