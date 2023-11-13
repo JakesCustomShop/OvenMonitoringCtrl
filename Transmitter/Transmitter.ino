@@ -23,7 +23,6 @@ TODO:
    - Add SD card data logging.
       - Add file naming for SD card data saving?
    - Implement tempreture monitoring incase of low-temp.
-   - Make stack light timing system for each connected oven.
 */
 
 
@@ -106,8 +105,8 @@ Timer timer[6];
 //Create a timer for sending data packets every XX miliseconds z
 Timer dataIntervalTimer;
 //millis() based timer for blinking the stack lights. 
-Timer StackLightOnTimer;    
-Timer StackLightOffTimer;
+Timer StackLightOnTimer[4];    
+Timer StackLightOffTimer[4];
 
 
 
@@ -209,8 +208,16 @@ void setup() {
   lcd.writeBl(20);
 
   dataIntervalTimer.startTimer(dataIntervalTime.Value()*1000); //Start a timer to send data packets at specified intervals.
-  StackLightOffTimer.startTimer(1);
-  StackLightOnTimer.startTimer(1);
+  // for (int i=0; i++; i<4){
+  StackLightOffTimer[0].startTimer(1);
+  StackLightOnTimer[0].startTimer(1);
+  StackLightOffTimer[1].startTimer(1);
+  StackLightOnTimer[1].startTimer(1);
+  StackLightOffTimer[2].startTimer(1);
+  StackLightOnTimer[2].startTimer(1);
+  StackLightOffTimer[3].startTimer(1);
+  StackLightOnTimer[3].startTimer(1);
+  // }
 }
 
 
@@ -400,51 +407,37 @@ void manageStackLight(byte systemStatus, byte oven) {
 
   switch (systemStatus) {
     case STARTUP:
-      manageRelays(oven, BUZZ, LOW);
-      //delay(10);
-      manageRelays(oven, GRN, LOW);
-      //delay(10);
-      manageRelays(oven, ORG, LOW);
-      //delay(10);
+      manageRelays(oven, BUZZ, LOW);      
+      manageRelays(oven, GRN, LOW);      
+      manageRelays(oven, ORG, LOW);     
       manageRelays(oven, RED, HIGH);
       break;
     case OVEN_READY:
-      manageRelays(oven, BUZZ, LOW);
-      //delay(10);
-      manageRelays(oven, GRN, HIGH);
-      //delay(10);
-      manageRelays(oven, ORG, LOW);
-      //delay(10);
+      manageRelays(oven, BUZZ, LOW);     
+      manageRelays(oven, GRN, HIGH);     
+      manageRelays(oven, ORG, LOW);     
       manageRelays(oven, RED, LOW);
       break;
     case CYCLE_ACTIVE:
-      manageRelays(oven, BUZZ, LOW);
-      //delay(10);
-      manageRelays(oven, GRN, LOW);
-      //delay(10);
-      manageRelays(oven, ORG, HIGH);
-      //delay(10);
+      manageRelays(oven, BUZZ, LOW);     
+      manageRelays(oven, GRN, LOW);    
+      manageRelays(oven, ORG, HIGH);    
       manageRelays(oven, RED, LOW);
       break;
-    case TIME_COMPLETE:
-      //delay(10);
-      manageRelays(oven, ORG, LOW);
-      //delay(10);
-      manageRelays(oven, RED, LOW);
-      //delay(10);
-      if (StackLightOnTimers.checkTimer()==0) {  //Time comlete
-        manageRelays(oven, GRN, LOW);           //Turn off the stack light
-        //delay(10);                              //Seems to be necessary to turn on 2 relays at the same time.
+    case TIME_COMPLETE:      
+      manageRelays(oven, ORG, LOW);     
+      manageRelays(oven, RED, LOW);     
+      if (StackLightOnTimer[oven].checkTimer()==0) {  //Time comlete
+        manageRelays(oven, GRN, LOW);           //Turn off the stack light                                 
         manageRelays(oven, BUZZ, LOW);          //Turn off the stack light
-        StackLightOffTimer.startTimer(500);    //Off duration
+        StackLightOffTimer[oven].startTimer(500);    //Off duration
         break;
       }
 
-      if (StackLightOffTimer.checkTimer()==0) {   //Time copmlete
+      if (StackLightOffTimer[oven].checkTimer()==0) {   //Time copmlete
         manageRelays(oven, GRN, HIGH);            //Turn ON the stack light
-        //delay(10);                                //Seems to be necessary to turn on 2 relays at the same time.
         manageRelays(oven, BUZZ, buzzerMode.Value());   //Turn ON the stack light if buzzerMode is true.
-        StackLightOnTimer.startTimer(1000);    
+        StackLightOnTimer[oven].startTimer(1000);    
         break;
       } 
 
@@ -452,11 +445,8 @@ void manageStackLight(byte systemStatus, byte oven) {
     case ACKNOWLEDGED:
       // No action required
       manageRelays(oven, BUZZ, LOW);
-      //delay(10);
       manageRelays(oven, GRN, HIGH);
-      //delay(10);
       manageRelays(oven, ORG, LOW);
-      //delay(10);
       manageRelays(oven, RED, LOW);
       break;
     case TEMPERATURE_DATA_SAVED:
@@ -464,7 +454,6 @@ void manageStackLight(byte systemStatus, byte oven) {
       break;
     case ERROR:
       manageRelays(oven, RED, HIGH);
-      //delay(10);
       manageRelays(oven, BUZZ, HIGH);
       break;
   }
