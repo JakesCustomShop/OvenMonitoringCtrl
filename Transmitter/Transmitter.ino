@@ -127,7 +127,6 @@ void setup() {
   //===SD Card Stuff==//
   if(!SD.begin(SM_ESP32PI_SDCARD_CS)){
     Serial.println("Card Mount Failed");
-    return;
   }
   uint8_t cardType = SD.cardType();
   //Reads the parameter file on the SD card.
@@ -137,7 +136,6 @@ void setup() {
 
   if(cardType == CARD_NONE){
     Serial.println("No SD card attached");
-    return;
   }
 
 //4Relay 4 HV
@@ -174,7 +172,6 @@ void setup() {
   // Init ESP-NOW
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
-    return;
   }
 
   // Once ESPNow is successfully Init, we will register for Send CB to
@@ -189,7 +186,6 @@ void setup() {
   // Add peer        
   if (esp_now_add_peer(&peerInfo) != ESP_OK){
     Serial.println("Failed to add peer");
-    return;
   }
 
   //TC Hat check.
@@ -205,10 +201,14 @@ void setup() {
   //===LCD SCREEN===//
   // set up the LCD's number of columns and rows:
   lcd.begin(20, 4);
+  //Set the backlight
   lcd.writeBl(20);
+  lcd.clear();
+  // create a new character
+  lcd.createChar(0, degree);
 
   dataIntervalTimer.startTimer(dataIntervalTime.Value()*1000); //Start a timer to send data packets at specified intervals.
-  // for (int i=0; i++; i<4){
+  // for (int i=0; i++; i<4){   //Had an issue with this for some reason.
   StackLightOffTimer[0].startTimer(1);
   StackLightOnTimer[0].startTimer(1);
   StackLightOffTimer[1].startTimer(1);
@@ -297,7 +297,7 @@ void loop() {
         Serial.print(myData.Count);                      
         Serial.print(", ");
       }
-      for(int i = 0; i < numTCperOven.Value(); i++){
+      for(int i = 0; i < (numTCperOven.Value()); i++){
         if (TC_Check && !debug){
           myData.Temps[i] = TC_Card.readTemp(i+1);   //TC_Card.readTemp wants 1 thru 8
           //Tempreture checking
@@ -310,10 +310,13 @@ void loop() {
           myData.Temps[i] = random(220,250);
       }
 
+
       //Asign unused myData.Temps to zero
       for(int i = numTCperOven.Value(); i < numTCperOven.getMaxVal(); i++){
         myData.Temps[i] = 0;
       }
+
+      
 
       //Build the myData transmission packet
       myData.Status = status[j];
@@ -327,6 +330,12 @@ void loop() {
 
     
       SerialSendData(myData);           //Send data over USB Serial Port.  Sends a packet for ea. oven
+
+      //I don't like it but it seems to work.  
+      if(currentMenuOption==HOME){
+        Display4Temps();    
+      }
+
     }//Loop for each oven
   } //Data Send interval 
   
@@ -340,10 +349,10 @@ void loop() {
     }
   }
   
-  displayMenuOption();              // Display the current menu option on the LCD screen. Updates countdown timer. 
+  displayMenuOption();              //Display the current menu option on the LCD screen. Updates countdown timer. And Displays temperature
   updateMenuOption();               // Update the current menu option
   updateMenuValue();                // Update the menu value based on the current menu option and the rotary encoder
-}
+}   //Continuous Loop As Fast As Possible
   
 void SerialSendData(struct_message myData) {
 
@@ -460,29 +469,56 @@ void manageStackLight(byte systemStatus, byte oven) {
 }
 
 /*
- * @brief Displays remaing Time to the LCD once every 0.250±50 seconds 
-This is very poor code as millis() is called as-fast-as possible here.
+ * @brief Displays remaing Time to the LCD
  * @param oven The oven we are displaying time and status for, 0-7.
 */
 void displayRemainingTime(int oven) {
-  if (millis() % 250 < 50) {
-      lcd.setCursor(0, 3);    //Column, Row
-      lcd.print(timer[oven].remainingTime()/1000);
-      lcd.print(" Sec");
-      lcd.setCursor(8, 3);    //Column, Row
-      lcd.print("| Status: ");
+  
+    lcd.setCursor(10, oven);    //Column, Row
+    lcd.print("   ");           //Clear the remaining time.
+    lcd.setCursor(10, oven);    //Column, Row
+    lcd.print(timer[oven].remainingTime()/1000);
+    lcd.setCursor(13, oven);    //Column, Row
+    lcd.print("Min");
+    if (debug) {
+      lcd.setCursor(19, oven);    //Column, Row
       lcd.print(status[oven]);
-
   } 
+  return;
 }
  
+
 /*
 @brief
-Recieves an array of tempreture readings (up to 6)
+Recieves an array of 4 tempreture readings
+and displays them on an LCD screen.  
+
+Needs completely reworked for function call in loop: once for every oven.
+*/
+void Display4Temps() {
+  String Temp_Disp;
+  
+  //for (int i=0; i<4; i++) {
+  Temp_Disp = String(myData.OvenID) + String(": ") + String(myData.Temps[0]);
+  lcd.setCursor(0, myData.OvenID-1);  // set cursor to first column, first row
+  lcd.print(Temp_Disp);
+  lcd.setCursor(6, myData.OvenID-1);
+  lcd.write((byte)0);       //Degree Symbol
+  lcd.print("C |");
+  //}
+
+
+
+  return;
+}
+
+
+/*
+@brief
+Recieves an array of 6 tempreture readings
 and displays them on an LCD screen.  
 */
-void DisplayTemps(int x[]) {
-  //String Temp_Disp = String(x);
+void Display6Temps(int x[]) {
   String Temp_Disp;
   //lcd.clear();
   // set cursor to first column, first row
@@ -531,9 +567,19 @@ void displayMenuOption() {
   // lcd.clear();
     switch (currentMenuOption) {
       case HOME:
-        DisplayTemps(myData.Temps);
+        //Update the remaining time once every 250ish miliseconds.
+        //Maybe move this elsewhere?
+        if (millis() % 250 < 50) {
+          displayRemainingTime(0);
+          displayRemainingTime(1);
+          displayRemainingTime(2);
+          displayRemainingTime(3);
+        }
+
+        // Display6Temps(myData.Temps);
+        // Display4Temps();
         //Prints the remaining cook time to the LCD Screen
-        displayRemainingTime(0);
+        // displayRemainingTime(0);
         break;
       case OVEN_ID:
         lcd.setCursor(0, 0);    //Column, Row

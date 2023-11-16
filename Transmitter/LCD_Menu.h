@@ -63,3 +63,16 @@ Parameter buzzerMode(1,0,1);                    //Buzzer On/ Off
 
 #endif
 
+
+//Degree symbol
+byte degree[8] = {
+  0b01110,
+  0b01010,
+  0b01110,
+  0b00000,
+  0b00000,
+  0b00000,
+  0b00000,
+  0b00000
+};
+
