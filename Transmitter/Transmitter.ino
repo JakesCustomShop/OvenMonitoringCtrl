@@ -53,7 +53,7 @@ SM_8relay eight_relay_card3 = SM_8relay(); //Eight Relays HAT with stack level 3
 // TC_Card.setType(1,TC_TYPE_J);   //Specify the Thermocouple type
 
 //int debug = 0;    //Turns off addational serial print fuctions.
-int debug = 1;    //Basic Debuging.  Enables random numbers for Tempeture values if TC hat is not detected.
+int debug = 0;    //Basic Debuging.  Enables random numbers for Tempeture values if TC hat is not detected.
 bool TC_Check;   //Check to see if the Sequent TC hat exists.
 int status[8] = {0,0,0,0,0,0,0,0};   //Status byte for each oven.
 int prev_status[8] = {1,1,1,1,1,1,1,1};   //Previous status for determinging when to update a stack light. Anything except STARTUP?
@@ -73,13 +73,13 @@ typedef struct struct_message {
 struct_message myData;
 
 enum SystemStatus {
-  STARTUP,
+  STARTUP,              //Oven temp below SetPoint.  
   OVEN_READY,
   CYCLE_ACTIVE,
   TIME_COMPLETE,
   ACKNOWLEDGED,
   TEMPERATURE_DATA_SAVED,
-  ERROR
+  ERROR                 
 };
 // Define the current menu option
 //SystemStatus myData.Status = STARTUP;
@@ -151,22 +151,19 @@ void setup() {
   //8Relay stack level 2
   if (eight_relay_card2.begin(2) )
   {
-    Serial.print("Four Relays four HV Inputs Card detected\n");
+    Serial.print("Eight Relays Card detected\n");
     // eight_relay_card2.writeChannel(LOW);
   }
-  else
-  {
-    Serial.print("Four Relays four HV Inputs Card NOT detected!\n");
-  }
+  else{Serial.print("Eight Relays Card NOT detected!\n");}
   //8relay stack level 3
   if (eight_relay_card3.begin(3) )
   {
-    Serial.print("Four Relays four HV Inputs Card detected\n");
+    Serial.print("Eight Relays Card detected\n");
     // eight_relay_card3.writeChannel(LOW);
   }
   else
   {
-    Serial.print("Four Relays four HV Inputs Card NOT detected!\n");
+    Serial.print("Eight Relays Card NOT detected!\n");
   }
 
   // Init ESP-NOW
@@ -192,6 +189,11 @@ void setup() {
   if (TC_Card.begin() ){
     Serial.print("TC HAT detected\n");
     TC_Check=true;
+    TC_Card.setType(1,2);   //Chanel, type J=2
+    TC_Card.setType(2,2);
+    TC_Card.setType(3,2);
+    TC_Card.setType(4,2);
+
   }
   else{
     Serial.print("TC HAT NOT detected!\n");
@@ -299,12 +301,14 @@ void loop() {
       }
       for(int i = 0; i < (numTCperOven.Value()); i++){
         if (TC_Check && !debug){
-          myData.Temps[i] = TC_Card.readTemp(i+1);   //TC_Card.readTemp wants 1 thru 8
+          myData.Temps[i] = TC_Card.readTemp(i+j+1);    //TC_Card.readTemp wants 1 thru 8
           //Tempreture checking
             if (myData.Temps[i] < temperatureSetpoint.Value())
-            status[j] = STARTUP;
-          else
-            status[j] = OVEN_READY;
+              status[j] = STARTUP;                      //Oven temp below setpoint.  
+            else {
+              if (status[j]==STARTUP)                   //Oven temp above setpoint and in mode startup
+                status[j] = OVEN_READY;                 //Set the status to OVEN_READY
+            }
         }
         else
           myData.Temps[i] = random(220,250);
@@ -415,13 +419,13 @@ void manageRelays(byte oven, int color, bool state) {
 void manageStackLight(byte systemStatus, byte oven) {
 
   switch (systemStatus) {
-    case STARTUP:
+    case STARTUP:   //Oven below tempreture setpoint
       manageRelays(oven, BUZZ, LOW);      
       manageRelays(oven, GRN, LOW);      
       manageRelays(oven, ORG, LOW);     
       manageRelays(oven, RED, HIGH);
       break;
-    case OVEN_READY:
+    case OVEN_READY:  //Oven has reached tempreture setpoint
       manageRelays(oven, BUZZ, LOW);     
       manageRelays(oven, GRN, HIGH);     
       manageRelays(oven, ORG, LOW);     
@@ -463,7 +467,7 @@ void manageStackLight(byte systemStatus, byte oven) {
       break;
     case ERROR:
       manageRelays(oven, RED, HIGH);
-      manageRelays(oven, BUZZ, HIGH);
+      manageRelays(oven, BUZZ,  HIGH);
       break;
   }
 }
