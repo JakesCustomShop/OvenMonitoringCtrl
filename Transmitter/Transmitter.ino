@@ -242,8 +242,10 @@ void loop() {
         delay(100);
       }
       delay(500);                       //Holy cow this elimiates alot of state issues. 
-      Serial.print("Button Number: ");
-      Serial.println(j);
+      if (debug){
+        Serial.print("Button Number: ");
+        Serial.println(j);
+      }
 
      //This switch determines what to do after the Start/Stop button is pressed
       switch(status[j]) {
@@ -301,7 +303,7 @@ void loop() {
       }
       for(int i = 0; i < (numTCperOven.Value()); i++){
         if (TC_Check && !debug){
-          myData.Temps[i] = TC_Card.readTemp(i+j+1);    //TC_Card.readTemp wants 1 thru 8
+          myData.Temps[i] = TC_Card.readTemp(i+j+1) + tc_offset_1.Value();    //TC_Card.readTemp wants 1 thru 8
           //Tempreture checking
             if (myData.Temps[i] < temperatureSetpoint.Value())
               status[j] = STARTUP;                      //Oven temp below setpoint.  
@@ -644,7 +646,26 @@ void displayMenuOption() {
         lcd.setCursor(0, 2);    //Column, Row
         lcd.print(buzzerMode.Value());
         break;
+      case TC_CALI_MODE:
+        lcd.setCursor(0, 0);    //Column, Row
+        lcd.print("Menu:");
+        lcd.setCursor(0, 1);
+        lcd.print("TC Calibration:");
+        lcd.setCursor(0, 2);    //Column, Row
+        lcd.print(tc_cali_mode.Value());
+        break;
+      case TC_CALI:
+        lcd.setCursor(0, 0);    //Column, Row
+        lcd.print("TC Calibration:");
+        lcd.setCursor(0, 1);
+        lcd.print("Temperature ");
+        lcd.print(tc_cali_mode.Value());
+        lcd.print(":");
+        lcd.setCursor(0, 2);    //Column, Row
+        lcd.print(TC_Card.readTemp(1)+tc_offset_1.Value());   //Use the rotery encoder to hone in the temp.
+        break;
       case SAVE_PARAM:
+        tc_cali_mode.setValue(0);     //Reset the calibration mode value
         String parameters = "";
         parameters += "ovenID: " + String(ovenID.Value()) + "\n";
         myData.OvenID = ovenID.Value();     //Please fix this
@@ -661,6 +682,7 @@ void displayMenuOption() {
         currentMenuOption = MenuOption(0);    //Returns to menuOption Home
         displayMenuOption();
         break;
+
     }
     updateMenuValue();
 
@@ -670,7 +692,8 @@ void displayMenuOption() {
 void updateMenuOption() {  
   if(lcd.readButtonLatch(1)){   //checks for a single button press and release.
     lcd.clear();
-    currentMenuOption = MenuOption((currentMenuOption + 1) % 9);  //Somehow % makes sure we don't go to a non existant menu
+    //
+    currentMenuOption = MenuOption((currentMenuOption + 1 + bool(tc_cali_mode.Value())) % Num_Menu_Screens);  //Somehow % makes sure we don't go to a non existant menu
   }
 }
 
@@ -706,6 +729,12 @@ void updateMenuValue() {
       break;
     case BUZZER_MODE:
       buzzerMode.setValue(buzzerMode.Value() + rotaryValue);
+      break;
+    case TC_CALI_MODE:
+      tc_cali_mode.setValue(tc_cali_mode.Value() + rotaryValue);
+      break;
+    case TC_CALI: 
+      tc_offset_1.setValue(tc_offset_1.Value() + rotaryValue);
       break;
   }
 }
