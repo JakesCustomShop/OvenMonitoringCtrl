@@ -30,7 +30,7 @@ TODO:
 #include <esp_now.h>
 #include <WiFi.h>
 
-//#include "SM_RTD.h"
+
 #include "SM_TC.h"
 #include "SM_LCDAdapter.h"
 #include "LCD_Menu.h"
@@ -303,7 +303,7 @@ void loop() {
       }
       for(int i = 0; i < (numTCperOven.Value()); i++){
         if (TC_Check && !debug){
-          myData.Temps[i] = TC_Card.readTemp(i+j+1) + tc_offset_1.Value();    //TC_Card.readTemp wants 1 thru 8
+          myData.Temps[i] = TC_Card.readTemp(i+j+1) + TC_Offsets[i+j+1];    //TC_Card.readTemp wants 1 thru 8
           //Tempreture checking
             if (myData.Temps[i] < temperatureSetpoint.Value())
               status[j] = STARTUP;                      //Oven temp below setpoint.  
@@ -336,10 +336,11 @@ void loop() {
 
     
       SerialSendData(myData);           //Send data over USB Serial Port.  Sends a packet for ea. oven
+      
 
       //I don't like it but it seems to work.  
       if(currentMenuOption==HOME){
-        Display4Temps();    
+        Display4Temps(j);    
       }
 
     }//Loop for each oven
@@ -362,18 +363,26 @@ void loop() {
   
 void SerialSendData(struct_message myData) {
 
+  String myData_String = "";
+  myData_String += "<";
+  myData_String += String(myData.OvenID);
+  myData_String += ", ";
+  myData_String += String(myData.Count);
+  myData_String += ", ";
+  for (int i = 0; i < 8; i++) {
+    myData_String += String(myData.Temps[i]);
+    myData_String += ", ";
+  }
+  myData_String += String(myData.Status);
+
+  //Send data over serial port to PC GUI
   Serial.print("<");
-  Serial.print(myData.OvenID);
-  Serial.print(", ");
-  Serial.print(myData.Count);
-  Serial.print(", ");
-  for(int i = 0; i < 8; i++){   
-    Serial.print(myData.Temps[i]);  
-    Serial.print(", ");   
-  } 
-  Serial.print(myData.Status); 
+  Serial.println(myData_String);
   Serial.print(">");
   Serial.println();
+
+  // appendFile(SD, "Data.txt", myData_String); 
+
 }
 
 
@@ -496,25 +505,18 @@ void displayRemainingTime(int oven) {
 
 /*
 @brief
-Recieves an array of 4 tempreture readings
-and displays them on an LCD screen.  
-
-Needs completely reworked for function call in loop: once for every oven.
+Displays a temperature reading from myData.Temps[0]
+@param j - Row on the LCD screen to display the temperature to. 
 */
-void Display4Temps() {
+void Display4Temps(int row) {
   String Temp_Disp;
-  
-  //for (int i=0; i<4; i++) {
   Temp_Disp = String(myData.OvenID) + String(": ") + String(myData.Temps[0]);
-  lcd.setCursor(0, myData.OvenID-1);  // set cursor to first column, first row
+  lcd.setCursor(0, row);      // set cursor to first column, first row
   lcd.print(Temp_Disp);
-  lcd.setCursor(6, myData.OvenID-1);
   lcd.write((byte)0);       //Degree Symbol
-  lcd.print("C |");
-  //}
-
-
-
+  lcd.print("C");
+  // lcd.setCursor(9, j);
+  // lcd.print("|");
   return;
 }
 
@@ -594,6 +596,7 @@ void displayMenuOption() {
         lcd.print("Oven ID");
         lcd.setCursor(0, 2);    //Column, Row
         lcd.print(ovenID.Value());
+        lcd.print(" ");         //Erases last digit when going from 10 to 9  
         break;
       case TEMPERATURE_SETPOINT:
         lcd.setCursor(0, 0);    //Column, Row
@@ -602,7 +605,8 @@ void displayMenuOption() {
         lcd.print("Temperature Setpoint");
         lcd.setCursor(0, 2);    //Column, Row
         lcd.print(temperatureSetpoint.Value());
-        lcd.print(" Degrees C");
+        lcd.write((byte)0);       //Degree Symbol
+        lcd.print("C");
         break;
       case COOK_TIME:
         lcd.setCursor(0, 0);    //Column, Row
@@ -629,6 +633,7 @@ void displayMenuOption() {
         lcd.print("Num T.C's per Oven:");
         lcd.setCursor(0, 2);    //Column, Row
         lcd.print(numTCperOven.Value());
+        lcd.print(" ");
         break;
       case NUM_OVENS:
         lcd.setCursor(0, 0);    //Column, Row
@@ -637,6 +642,7 @@ void displayMenuOption() {
         lcd.print("Number of Ovens:");
         lcd.setCursor(0, 2);    //Column, Row
         lcd.print(numOvens.Value());
+        lcd.print(" ");
         break;
       case BUZZER_MODE:
         lcd.setCursor(0, 0);    //Column, Row
@@ -662,7 +668,9 @@ void displayMenuOption() {
         lcd.print(tc_cali_mode.Value());
         lcd.print(":");
         lcd.setCursor(0, 2);    //Column, Row
-        lcd.print(TC_Card.readTemp(1)+tc_offset_1.Value());   //Use the rotery encoder to hone in the temp.
+        lcd.print(TC_Card.readTemp(tc_cali_mode.Value())+TC_Offsets[tc_cali_mode.Value()]);   //Use the rotery encoder to hone in the temp.
+        lcd.write((byte)0);       //Degree Symbol
+        lcd.print("C");
         break;
       case SAVE_PARAM:
         tc_cali_mode.setValue(0);     //Reset the calibration mode value
@@ -675,6 +683,14 @@ void displayMenuOption() {
         parameters += "numTCperOven: " + String(numTCperOven.Value()) + "\n";
         parameters += "numOvens: " + String(numOvens.Value()) + "\n";
         parameters += "buzzerMode: " + String(buzzerMode.Value()) + "\n";
+        parameters += "tcOffset1: " + String(TC_Offsets[1]) + "\n";
+        parameters += "tcOffset2: " + String(TC_Offsets[2]) + "\n";
+        parameters += "tcOffset3: " + String(TC_Offsets[3]) + "\n";
+        parameters += "tcOffset4: " + String(TC_Offsets[4]) + "\n";
+        parameters += "tcOffset5: " + String(TC_Offsets[5]) + "\n";
+        parameters += "tcOffset6: " + String(TC_Offsets[6]) + "\n";
+        parameters += "tcOffset7: " + String(TC_Offsets[7]) + "\n";
+        parameters += "tcOffset8: " + String(TC_Offsets[8]) + "\n";
         Serial.print(parameters); 
         writeFile(SD, "/parameters.txt", parameters);
         readParameterFile(SD, "/parameters.txt");
@@ -692,7 +708,12 @@ void displayMenuOption() {
 void updateMenuOption() {  
   if(lcd.readButtonLatch(1)){   //checks for a single button press and release.
     lcd.clear();
-    //
+    
+    if (currentMenuOption==TC_CALI){
+      tc_cali_mode.setValue(0);
+      currentMenuOption = SAVE_PARAM;
+      return;
+    }
     currentMenuOption = MenuOption((currentMenuOption + 1 + bool(tc_cali_mode.Value())) % Num_Menu_Screens);  //Somehow % makes sure we don't go to a non existant menu
   }
 }
@@ -702,10 +723,6 @@ void updateMenuOption() {
 void updateMenuValue() {
   lcd.resetEncoder();
   int rotaryValue = -lcd.readEncoder();
-  // if (rotaryValue > 1)        //Ensure the rotary value is -1,0 or 1
-  //   rotaryValue = 1;
-  // else if (rotaryValue < -1)
-  //   rotaryValue = -1;
   delay(10);
   
   switch (currentMenuOption) {
@@ -734,7 +751,7 @@ void updateMenuValue() {
       tc_cali_mode.setValue(tc_cali_mode.Value() + rotaryValue);
       break;
     case TC_CALI: 
-      tc_offset_1.setValue(tc_offset_1.Value() + rotaryValue);
+      tc_offset_1.setValue(TC_Offsets[tc_cali_mode.Value()] + rotaryValue);
       break;
   }
 }
@@ -810,6 +827,22 @@ void readParameterFile(fs::FS &fs, const char * path){
       numOvens.setValue(intValue);
     } else if (parameterName == "buzzerMode") {
       buzzerMode.setValue(intValue);
+    }else if (parameterName == "tcOffset1") {
+      TC_Offsets[1] = intValue;
+    }else if (parameterName == "tcOffset2") {
+      TC_Offsets[2] = intValue;
+    }else if (parameterName == "tcOffset3") {
+      TC_Offsets[3] = intValue;
+    }else if (parameterName == "tcOffset4") {
+      TC_Offsets[4] = intValue;
+    }else if (parameterName == "tcOffset5") {
+      TC_Offsets[5] = intValue;
+    }else if (parameterName == "tcOffset6") {
+      TC_Offsets[6] = intValue;
+    }else if (parameterName == "tcOffset7") {
+      TC_Offsets[7] = intValue;
+    }else if (parameterName == "tcOffset8") {
+      TC_Offsets[8] = intValue;
     }
   }
 
@@ -830,6 +863,9 @@ void readParameterFile(fs::FS &fs, const char * path){
     Serial.println(numOvens.Value());
     Serial.print("buzzerMode: ");
     Serial.println(buzzerMode.Value());
+    Serial.print("tcOffsets: ");
+    Serial.println(TC_Offsets[1]+','+TC_Offsets[2]+','+TC_Offsets[3]+','+TC_Offsets[4]+','+TC_Offsets[5]+','+TC_Offsets[6]+','+TC_Offsets[7]+','+TC_Offsets[8]);
+    
   }
 
 

@@ -66,9 +66,7 @@ Parameter buzzerMode(1,0,1);                    //Buzzer On/ Off
 Parameter tc_cali_mode(0,0,8);                  //Skip Calibration, Calibrate TC1, Cali TC2 .... TC8
 Parameter tc_offset_1(0,-100,100);              //Thermocouple Offset value.  Display TC_Card.readtemp() + tc_offset.  Record tc_offset + roteryValue
 
-
-#endif
-
+int TC_Offsets[9] = {0,0,0,0,0,0,0,0,0};        //9 Elements so tc_cali_mode can be used for indexing.  tc_cali_mode 
 
 //Degree symbol
 byte degree[8] = {
@@ -82,3 +80,5 @@ byte degree[8] = {
   0b00000
 };
 
+
+#endif
