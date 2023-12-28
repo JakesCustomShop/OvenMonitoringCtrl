@@ -26,9 +26,9 @@ MenuOption currentMenuOption = HOME;
 
 class Parameter {
 public:
-  int value;
-  int min_val;
-  int max_val;
+  int value;    //Stored value.  A defult Value is assigned if no value is found on SD card Parameters.txt file.  
+  int min_val;  //lower Limit for value
+  int max_val;  //Upper limit for value
 
   Parameter(int value, int min_val, int max_val) {
     this->value = value;
@@ -51,24 +51,24 @@ public:
   int getMaxVal() {
     return max_val;
   }
-
-
 };
 
 //System Defults if no parameter.txt file exists
+//(Defult value, Min value, max value)
 Parameter ovenID(1, 1, 99);                     //The first Oven Number.  Any addational ovens are auto asinged.
 Parameter temperatureSetpoint(225, 0, 500);
-Parameter cookTime(7, 1, 60);                   //Seconds
-Parameter dataIntervalTime(3, 1, 100);          //Seconds
+Parameter cookTime(7, 1, 60);                   //Minutes
+Parameter dataIntervalTime(60, 1, 240);          //Seconds
 Parameter numTCperOven(1,1,8);                  //Number of RTDs/ Thermocouples per Oven
 Parameter numOvens(4,1,8);                      //Number of Ovens connected to each Transmitter
 Parameter buzzerMode(1,0,1);                    //Buzzer On/ Off
-Parameter tc_cali_mode(0,0,8);                  //Skip Calibration, Calibrate TC1, Cali TC2 .... TC8
+Parameter tc_cali_mode(0,0,8);                  //Skip Calibration, Calibrate TC1, Cali TC2 .... TC8, Exit to SAVE_PARAM
 Parameter tc_offset_1(0,-100,100);              //Thermocouple Offset value.  Display TC_Card.readtemp() + tc_offset.  Record tc_offset + roteryValue
+// Parameter cycleNum(0,0,999);                     //counts each time a cycle is started.
 
-int TC_Offsets[9] = {0,0,0,0,0,0,0,0,0};        //9 Elements so tc_cali_mode can be used for indexing.  tc_cali_mode 
+int TC_Offsets[9] = {0,0,0,0,0,0,0,0,0};        //9 Elements so tc_cali_mode can be used for indexing.  tc_cali_mode.  First element will allways be 0 
 
-//Degree symbol
+//Degree symbol for use on LCD screen
 byte degree[8] = {
   0b01110,
   0b01010,

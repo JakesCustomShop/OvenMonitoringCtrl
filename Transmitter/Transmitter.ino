@@ -45,18 +45,18 @@ SM_LCDAdapter lcd = SM_LCDAdapter();
 // REPLACE WITH THE RECEIVER'S MAC Address
 uint8_t broadcastAddress[] = {0x94,0xB9,0x7E,0xF9,0x3A,0x18};
 
-
 SM_4REL4IN four_IO_card0(0); //Four Relays four HV Inputs HAT with stack level 0 (no Jmper Installed)
 SM_TC TC_Card(1);     //TC Data Acquisition HAT with stack level 1 (no jumpers installed)
 SM_8relay eight_relay_card2 = SM_8relay() ; //Eight Relays HAT with stack level 2
 SM_8relay eight_relay_card3 = SM_8relay(); //Eight Relays HAT with stack level 3 
 // TC_Card.setType(1,TC_TYPE_J);   //Specify the Thermocouple type
 
-//int debug = 0;    //Turns off addational serial print fuctions.
-int debug = 0;    //Basic Debuging.  Enables random numbers for Tempeture values if TC hat is not detected.
-bool TC_Check;   //Check to see if the Sequent TC hat exists.
-int status[8] = {0,0,0,0,0,0,0,0};   //Status byte for each oven.
-int prev_status[8] = {1,1,1,1,1,1,1,1};   //Previous status for determinging when to update a stack light. Anything except STARTUP?
+//int debug = 0;  //Turns off addational serial print fuctions.
+int debug = 1;    //Basic Debuging.  Enables random numbers for Tempeture values if TC hat is not detected.
+bool TC_Check;    //Check to see if the Sequent TC hat exists.
+int status[8] = {0,0,0,0,0,0,0,0};      //Status byte for each oven.
+int prev_status[8] = {1,1,1,1,1,1,1,1}; //Previous status for determinging when to update a stack light. Anything except STARTUP?
+int cycleNum[8]= {0,0,0,0,0,0,0,0};     //Cycle counter for each oven.  
 
 // Structure example to send data
 // Must match the receiver structure
@@ -101,7 +101,6 @@ esp_now_peer_info_t peerInfo; // Create peer interface
 //===Initilize timers===//
 //A timer interval of 0 disables the timer
 Timer timer[6];
-//int CookTime[6] = {7000,2000,0,0,0,0};    Changed to class Parameter
 //Create a timer for sending data packets every XX miliseconds z
 Timer dataIntervalTimer;
 //millis() based timer for blinking the stack lights. 
@@ -118,7 +117,9 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
  
 
 void setup() {
-   
+  //Eliminates errors when using an external 5V PSU.  
+  //Not Necessary when using USB
+  delay(1000);    
   // Init Serial Monitor
   Serial.begin(115200);
   // Set device as a Wi-Fi Station
@@ -127,16 +128,29 @@ void setup() {
   //===SD Card Stuff==//
   if(!SD.begin(SM_ESP32PI_SDCARD_CS)){
     Serial.println("Card Mount Failed");
+    lcd.setCursor(0, 0);    //Column, Row
+    lcd.print("Card Mount Failed");           //Clear the remaining time.
+    delay(2000);
   }
   uint8_t cardType = SD.cardType();
+  if(cardType == CARD_NONE){
+    Serial.println("No SD card attached");
+    lcd.setCursor(0, 1);    //Column, Row
+    lcd.print("No SD card attached");           //Clear the remaining time.
+    delay(2000);
+  }
+  
   //Reads the parameter file on the SD card.
   //also asigns read values to the Parameters class
   readParameterFile(SD, "/parameters.txt");   
   myData.OvenID = ovenID.Value();     //Please fix this
 
-  if(cardType == CARD_NONE){
-    Serial.println("No SD card attached");
+  //Create a file for each oven's tempreture data.
+  for (int i=ovenID.Value(); i<numOvens.Value(); i++){
+    newDatafile(i);
   }
+
+
 
 //4Relay 4 HV
   if (four_IO_card0.begin() )
@@ -197,7 +211,11 @@ void setup() {
   }
   else{
     Serial.print("TC HAT NOT detected!\n");
+    lcd.setCursor(0, 2);    //Column, Row
+    lcd.print("TC HAT NOT detected!");           //Clear the remaining time.
+    delay(2000);
     TC_Check=false;
+    
   }
 
   //===LCD SCREEN===//
@@ -236,12 +254,14 @@ void loop() {
 
     //===Handle Start/Stop Button on for timer[i]===//
     //Should be compatible with up to 4 Start/Stop buttons for 4 ovens.
-    if (lcd.readButtonLatch(j+2)){   //for use with LCD screen buttons
-    // if (four_IO_card0.readOptoAC(i)) {        //Ideal if we can create a readButtonLatch version for relay card
+    // if (lcd.readButtonLatch(j+2)){   //for use with LCD screen buttons
+    if (four_IO_card0.readOptoAC(j+1)) {        //Ideal if we can create a readButtonLatch version for relay card
       while(four_IO_card0.readOpto(j+1)){       //Wait for the button to be released. SM IO are indexed at 1
         delay(100);
       }
-      delay(500);                       //Holy cow this elimiates alot of state issues. 
+      delay(500);         //Holy cow this elimiates alot of state issues. 
+      cycleNum[j]+=1;     //Count cooking cycles for each oven j.
+
       if (debug){
         Serial.print("Button Number: ");
         Serial.println(j);
@@ -252,22 +272,23 @@ void loop() {
         case STARTUP:                   //Pre-heating
         case OVEN_READY:                //Ready
         case ACKNOWLEDGED:              //Acknowledged, Ready, or Pre-heating  
-          timer[j].startTimer(cookTime.Value()*1000); //Start the timer.  cookTime is units of seconds.
+          timer[j].startTimer(cookTime.Value()*60000); //Start the timer.  cookTime is units of minutes.
           status[j] = CYCLE_ACTIVE;
           Serial.print("Timer Started for: ");
           Serial.println(cookTime.Value());
+          newDatafile(j);    //Create a new .csv data file for this oven's new cycle.  Applies csv headers.
           //Flashing Green. No buzzer
           break;
         
         //Turn off the buzzer/ flashy lights
         case CYCLE_ACTIVE: //Active cycle OR
         case TIME_COMPLETE: //Time Complete
-            //Turn off buzzer and Inidcator light
-            status[j] = ACKNOWLEDGED;    //Acknowledge (GUI Stops collecting data)
-            Serial.println("Acknowledged (GUI Stops collecting data)");
-            timer[j].startTimer(0);  //Stop the Timer if it is active.
-            break;
-         default:
+          //Turn off buzzer and Inidcator light
+          status[j] = ACKNOWLEDGED;    //Acknowledge (GUI Stops collecting data)
+          Serial.println("Acknowledged (GUI Stops collecting data)");
+          timer[j].startTimer(0);  //Stop the Timer if it is active.
+          break;
+        default:
           break;
       }
     }
@@ -277,12 +298,8 @@ void loop() {
       //Two short Beeps and Two short Green Flashes
       Serial.println("Cooking cycle is complete");
       Serial.println("Waiting for Acknowledgement.");
-    }
-
-    
+    }   
   }
-
-
 
   //===DATA TRANSMITTION===//
   //Runs only when the transmission interval has completed.
@@ -302,7 +319,7 @@ void loop() {
         Serial.print(", ");
       }
       for(int i = 0; i < (numTCperOven.Value()); i++){
-        if (TC_Check && !debug){
+        if (TC_Check){
           myData.Temps[i] = TC_Card.readTemp(i+j+1) + TC_Offsets[i+j+1];    //TC_Card.readTemp wants 1 thru 8
           //Tempreture checking
             if (myData.Temps[i] < temperatureSetpoint.Value())
@@ -320,9 +337,7 @@ void loop() {
       //Asign unused myData.Temps to zero
       for(int i = numTCperOven.Value(); i < numTCperOven.getMaxVal(); i++){
         myData.Temps[i] = 0;
-      }
-
-      
+      }     
 
       //Build the myData transmission packet
       myData.Status = status[j];
@@ -335,7 +350,11 @@ void loop() {
       dataIntervalTimer.startTimer(dataIntervalTime.Value()*1000);   //Restart the timer
 
     
-      SerialSendData(myData);           //Send data over USB Serial Port.  Sends a packet for ea. oven
+      String myData_String = SerialSendData(myData);           //Send data over USB Serial Port.  Sends a packet for ea. oven
+      
+      //Build a file_name but not a new file.  This must be the same structure as is used for newDataFile();
+      String file_name = "/"+String(myData.OvenID) + "-sampleData-" + String(cycleNum[j]) +".txt";
+      appendFile(SD, file_name, myData_String);   //Adds the data packet from SerialSendData to the SD card file
       
 
       //I don't like it but it seems to work.  
@@ -361,28 +380,45 @@ void loop() {
   updateMenuValue();                // Update the menu value based on the current menu option and the rotary encoder
 }   //Continuous Loop As Fast As Possible
   
-void SerialSendData(struct_message myData) {
 
-  String myData_String = "";
-  myData_String += "<";
-  myData_String += String(myData.OvenID);
-  myData_String += ", ";
-  myData_String += String(myData.Count);
-  myData_String += ", ";
-  for (int i = 0; i < 8; i++) {
-    myData_String += String(myData.Temps[i]);
-    myData_String += ", ";
+/*
+  @brief Creates a new .csv data file for oven j.  
+  Gives the new data file .csv headers
+  @param j - oven to create a new data file for
+*/
+void newDatafile(int j){
+  String dataHeader = "Oven #, Sample #, Channel 1,Channel 2,Channel 3,Channel 4,Channel 5,Channel 6,Channel 7,Channel 8,Status \n";
+  String file_name = "/"+String(myData.OvenID) + "-sampleData-" + String(cycleNum[j]) +".txt";
+  if (!SD.open(file_name))                  //If the file does not exist
+    writeFile(SD, file_name, dataHeader);   //Create a new file
+  else {
+    Serial.println("File already Exists!");
+    cycleNum[j]+=1;  //Increment to the next cycleNum.
   }
-  myData_String += String(myData.Status);
+    //Appened data here?
+}
+
+
+String SerialSendData(struct_message myData) { 
+  String Data_String = "";
+  Data_String += String(myData.OvenID);
+  Data_String += ", ";
+  Data_String += String(myData.Count);
+  Data_String += ", ";
+  for (int i = 0; i < 8; i++) {
+    Data_String += String(myData.Temps[i]);
+    Data_String += ", ";
+  }
+  Data_String += String(myData.Status);
 
   //Send data over serial port to PC GUI
   Serial.print("<");
-  Serial.println(myData_String);
-  Serial.print(">");
-  Serial.println();
+  Serial.print(Data_String);
+  Serial.println(">");
 
-  // appendFile(SD, "Data.txt", myData_String); 
-
+  //End the current row of data for the SD card data log.
+  Data_String += "\n";    
+  return Data_String;
 }
 
 
@@ -492,7 +528,7 @@ void displayRemainingTime(int oven) {
     lcd.setCursor(10, oven);    //Column, Row
     lcd.print("   ");           //Clear the remaining time.
     lcd.setCursor(10, oven);    //Column, Row
-    lcd.print(timer[oven].remainingTime()/1000);
+    lcd.print(timer[oven].remainingTime()/60000);   //converts to minutes
     lcd.setCursor(13, oven);    //Column, Row
     lcd.print("Min");
     if (debug) {
@@ -606,7 +642,7 @@ void displayMenuOption() {
         lcd.setCursor(0, 2);    //Column, Row
         lcd.print(temperatureSetpoint.Value());
         lcd.write((byte)0);       //Degree Symbol
-        lcd.print("C");
+        lcd.print("C ");
         break;
       case COOK_TIME:
         lcd.setCursor(0, 0);    //Column, Row
@@ -615,7 +651,7 @@ void displayMenuOption() {
         lcd.print("Cook Time:");
         lcd.setCursor(0, 2);    //Column, Row
         lcd.print(cookTime.Value());
-        lcd.print(" Minutes");
+        lcd.print(" Minutes ");
         break;
       case DATA_INTERVAL_TIME:
         lcd.setCursor(0, 0);    //Column, Row
@@ -624,7 +660,7 @@ void displayMenuOption() {
         lcd.print("Data Interval Time:");
         lcd.setCursor(0, 2);    //Column, Row
         lcd.print(dataIntervalTime.Value());
-        lcd.print(" Seconds");
+        lcd.print(" Seconds ");
         break;
       case NUM_TC_PER_OVEN:
         lcd.setCursor(0, 0);    //Column, Row
@@ -670,7 +706,7 @@ void displayMenuOption() {
         lcd.setCursor(0, 2);    //Column, Row
         lcd.print(TC_Card.readTemp(tc_cali_mode.Value())+TC_Offsets[tc_cali_mode.Value()]);   //Use the rotery encoder to hone in the temp.
         lcd.write((byte)0);       //Degree Symbol
-        lcd.print("C");
+        lcd.print("C ");
         break;
       case SAVE_PARAM:
         tc_cali_mode.setValue(0);     //Reset the calibration mode value
@@ -691,6 +727,7 @@ void displayMenuOption() {
         parameters += "tcOffset6: " + String(TC_Offsets[6]) + "\n";
         parameters += "tcOffset7: " + String(TC_Offsets[7]) + "\n";
         parameters += "tcOffset8: " + String(TC_Offsets[8]) + "\n";
+        // parameters += "cycleNum: " + String(cycleNum.Value()) + "\n";
         Serial.print(parameters); 
         writeFile(SD, "/parameters.txt", parameters);
         readParameterFile(SD, "/parameters.txt");
@@ -710,8 +747,12 @@ void updateMenuOption() {
     lcd.clear();
     
     if (currentMenuOption==TC_CALI){
-      tc_cali_mode.setValue(0);
-      currentMenuOption = SAVE_PARAM;
+      
+      if (tc_cali_mode.Value()==8){   //If we have looped thru all possible TCs
+          tc_cali_mode.setValue(0);
+          currentMenuOption = SAVE_PARAM;
+        }
+      tc_cali_mode.setValue(tc_cali_mode.Value()+1);    //go to the next TC calibration
       return;
     }
     currentMenuOption = MenuOption((currentMenuOption + 1 + bool(tc_cali_mode.Value())) % Num_Menu_Screens);  //Somehow % makes sure we don't go to a non existant menu
@@ -751,14 +792,15 @@ void updateMenuValue() {
       tc_cali_mode.setValue(tc_cali_mode.Value() + rotaryValue);
       break;
     case TC_CALI: 
-      tc_offset_1.setValue(TC_Offsets[tc_cali_mode.Value()] + rotaryValue);
+      // tc_offset_1.setValue(TC_Offsets[tc_cali_mode.Value()] + rotaryValue);
+      TC_Offsets[tc_cali_mode.Value()] += rotaryValue;
       break;
   }
 }
 
 //===SD Card Stuff===//
-void writeFile(fs::FS &fs, const char * path, String message){
-  if (debug)Serial.printf("Writing file: %s\n", path);
+void writeFile(fs::FS &fs, const String path, String message){
+  if (debug){Serial.printf("Writing file: "); Serial.println(path);}
 
   File file = fs.open(path, FILE_WRITE);
   if(!file){
@@ -773,8 +815,8 @@ void writeFile(fs::FS &fs, const char * path, String message){
   file.close();
 }
 
-void appendFile(fs::FS &fs, const char * path, String message){
-  if (debug)Serial.printf("Appending to file: %s\n", path);
+void appendFile(fs::FS &fs, const String path, String message){
+  if (debug){Serial.print("Appending to file: "); Serial.println(path);}
 
   File file = fs.open(path, FILE_APPEND);
   if(!file){
@@ -790,7 +832,7 @@ void appendFile(fs::FS &fs, const char * path, String message){
 }
 
 void readParameterFile(fs::FS &fs, const char * path){
-  if (debug)Serial.printf("Reading file: %s\n", path);
+  if (debug)Serial.printf("Reading file: ");  Serial.println(path);
 
   File file = fs.open(path);
   if(!file){
@@ -843,6 +885,8 @@ void readParameterFile(fs::FS &fs, const char * path){
       TC_Offsets[7] = intValue;
     }else if (parameterName == "tcOffset8") {
       TC_Offsets[8] = intValue;
+    }else if (parameterName == "cycleNum")  { 
+      // cycleNum.SetValue(intValue);
     }
   }
 
@@ -865,7 +909,8 @@ void readParameterFile(fs::FS &fs, const char * path){
     Serial.println(buzzerMode.Value());
     Serial.print("tcOffsets: ");
     Serial.println(TC_Offsets[1]+','+TC_Offsets[2]+','+TC_Offsets[3]+','+TC_Offsets[4]+','+TC_Offsets[5]+','+TC_Offsets[6]+','+TC_Offsets[7]+','+TC_Offsets[8]);
-    
+    // Serial.print("cycleNum: ");
+    // Serial.println(cycleNum[ovenID.Value()]);
   }
 
 

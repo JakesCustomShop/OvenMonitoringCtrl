@@ -26,14 +26,14 @@ debug = 1   #Print Statments
 ################################################
 #System Defults:
 
-Path('C:\JCS\OvenMonitorCtrl').mkdir(parents=True, exist_ok=True)     # set the config file location
-config_location = Path('C:\JCS\OvenMonitorCtrl\param_config.ini')
-calibration_csv = "C:\JCS\OvenMonitorCtrl\calibration.csv"
+Path('C:\JCS\OvenMonitorTime').mkdir(parents=True, exist_ok=True)     # set the config file location
+config_location = Path('C:\JCS\OvenMonitorTime\param_config.ini')
+calibration_csv = "C:\JCS\OvenMonitorTime\calibration.csv"
 sample_count = 0     #counts each time the machine is ran.  Used for incrementing file names
 
 #Defualt information saved in the param_config.ini file.  If the .ini is missing or
 #Not written correctly, the old one will be overwritten with these values.
-dir_name = "C:\JCS\OvenMonitorCtr"   #Save location for .csv data.
+dir_name = "C:\JCS\OvenMonitorTime"   #Save location for .csv data.
 file_name = 'TestData'      
 test_dur = 2                            #Test Durration in seconds
 sample_frequency = 100                  #Sample Frequency in Hz
@@ -208,6 +208,7 @@ def mainScreen():
 	support_button = tk.Button(masterframe, text="Support", command=open_support_link, bd=0, fg='black', font=('helvetica', 10, 'underline'), justify='right')
 
 	#testButton = tk.Button(masterframe, text="Test Button")
+
 
 	#File save dir
 
