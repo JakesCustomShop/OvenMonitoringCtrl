@@ -1,3 +1,0 @@
-C:\Users\train\OneDrive\Arduino\USBComm\USBComm\x64\Debug\USBComm.exe
-C:\Users\train\OneDrive\Arduino\E-Stop\USBComm\x64\Debug\USBComm.exe
-C:\Users\train\OneDrive\Arduino\OvenMonitorCtrl\USBComm\x64\Debug\USBComm.exe

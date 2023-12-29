@@ -46,7 +46,7 @@ SM_LCDAdapter lcd = SM_LCDAdapter();
 uint8_t broadcastAddress[] = {0x94,0xB9,0x7E,0xF9,0x3A,0x18};
 
 SM_4REL4IN four_IO_card0(0); //Four Relays four HV Inputs HAT with stack level 0 (no Jmper Installed)
-SM_TC TC_Card(1);     //TC Data Acquisition HAT with stack level 1 (no jumpers installed)
+SM_TC TC_Card(1);     //TC Data Acquisition HAT with stack level 1 (1 jumper installed)
 SM_8relay eight_relay_card2 = SM_8relay() ; //Eight Relays HAT with stack level 2
 SM_8relay eight_relay_card3 = SM_8relay(); //Eight Relays HAT with stack level 3 
 // TC_Card.setType(1,TC_TYPE_J);   //Specify the Thermocouple type
@@ -57,6 +57,8 @@ bool TC_Check;    //Check to see if the Sequent TC hat exists.
 int status[8] = {0,0,0,0,0,0,0,0};      //Status byte for each oven.
 int prev_status[8] = {1,1,1,1,1,1,1,1}; //Previous status for determinging when to update a stack light. Anything except STARTUP?
 int cycleNum[8]= {0,0,0,0,0,0,0,0};     //Cycle counter for each oven.  
+bool Use8RelayCard = false;             //Systems with >1 stacklight use eight_realy_cardX.  Systems with 1 stack light use four_IO_card0.  
+//int systemType = 1;   //1: System for lab with 4 Ovens and Timing Sys.  2: Conveyor System with 4 TCs per oven.
 
 // Structure example to send data
 // Must match the receiver structure
@@ -166,9 +168,13 @@ void setup() {
   if (eight_relay_card2.begin(2) )
   {
     Serial.print("Eight Relays Card detected\n");
+    // Use8RelayCard = true;
     // eight_relay_card2.writeChannel(LOW);
   }
-  else{Serial.print("Eight Relays Card NOT detected!\n");}
+  else{
+    Serial.print("Eight Relays Card NOT detected!\n");
+    Use8RelayCard = false;
+  }
   //8relay stack level 3
   if (eight_relay_card3.begin(3) )
   {
@@ -356,11 +362,14 @@ void loop() {
       String file_name = "/"+String(myData.OvenID) + "-sampleData-" + String(cycleNum[j]) +".txt";
       appendFile(SD, file_name, myData_String);   //Adds the data packet from SerialSendData to the SD card file
       
-
       //I don't like it but it seems to work.  
       if(currentMenuOption==HOME){
-        Display4Temps(j);    
+        if (numTCperOven.Value()==1)
+          Display4Temps(j);    
+        else
+          Display8Temps(myData.Temps);
       }
+
 
     }//Loop for each oven
   } //Data Send interval 
@@ -430,36 +439,40 @@ String SerialSendData(struct_message myData) {
   @param state LOW or HIGH  
 */
 void manageRelays(byte oven, int color, bool state) {
+  if (Use8RelayCard){
+    //{Relay Card, PinNumber}
+    int card_pin_matrix[4][4][2] =          
+        //BUZZ, GRN, ORG,  RED
+      { {{0,1},{0,2},{0,3},{0,4},},  //Card 2, Oven 0
+        {{0,5},{0,6},{0,7},{0,8},},  //Card 2, Oven 1
+        {{1,1},{1,2},{1,3},{1,4},},  //Card 3, Oven 2
+        {{1,5},{1,6},{1,7},{1,8},},}; //Card 3, Oven 3
 
-  //{Relay Card, PinNumber}
-  int card_pin_matrix[4][4][2] =          
-      //BUZZ, GRN, ORG,  RED
-    { {{0,1},{0,2},{0,3},{0,4},},  //Card 2, Oven 0
-      {{0,5},{0,6},{0,7},{0,8},},  //Card 2, Oven 1
-      {{1,1},{1,2},{1,3},{1,4},},  //Card 3, Oven 2
-      {{1,5},{1,6},{1,7},{1,8},},}; //Card 3, Oven 3
+    
+    int card = card_pin_matrix[oven][color-1][0];   //StackLight Color is inedxed at 1
+    int pin = card_pin_matrix[oven][color-1][1];
+    Serial.printf("Oven: %d, Color: %d", oven, color);
+    Serial.printf("Card: %d, Pin: %d, State: %d", card, pin, state);
+    Serial.println();
 
-  
-  int card = card_pin_matrix[oven][color-1][0];   //StackLight Color is inedxed at 1
-  int pin = card_pin_matrix[oven][color-1][1];
-  Serial.printf("Oven: %d, Color: %d", oven, color);
-  Serial.printf("Card: %d, Pin: %d, State: %d", card, pin, state);
-  Serial.println();
-
-  switch (card) 
-  {
-  case 0:   //Relay Card 0
-    eight_relay_card2.writeChannel(pin, state);    
-    break;
-  case 1:   //Relay Card 1
-    eight_relay_card3.writeChannel(pin, state);
-    break;
-  default:
-    break;
+    switch (card) 
+    {
+    case 0:   //Relay Card 0
+      eight_relay_card2.writeChannel(pin, state);    
+      break;
+    case 1:   //Relay Card 1
+      eight_relay_card3.writeChannel(pin, state);
+      break;
+    default:
+      break;
+    }
+    delay(10);
+  }//if (Use8RelayCard)
+  else{   //Use 4 IO Card
+    four_IO_card0.writeRelay(color,state);
+    delay(100);
   }
-  delay(10);
 }
-
 /*
   @brief Determines the state of stacklights given a Status byte.  
 */
@@ -531,10 +544,8 @@ void displayRemainingTime(int oven) {
     lcd.print(timer[oven].remainingTime()/60000);   //converts to minutes
     lcd.setCursor(13, oven);    //Column, Row
     lcd.print("Min");
-    if (debug) {
-      lcd.setCursor(19, oven);    //Column, Row
-      lcd.print(status[oven]);
-  } 
+    lcd.setCursor(19, oven);    //Column, Row
+    lcd.print(status[oven]);
   return;
 }
  
@@ -542,7 +553,7 @@ void displayRemainingTime(int oven) {
 /*
 @brief
 Displays a temperature reading from myData.Temps[0]
-@param j - Row on the LCD screen to display the temperature to. 
+@param row - Row on the LCD screen to display the temperature to. 
 */
 void Display4Temps(int row) {
   String Temp_Disp;
@@ -554,15 +565,16 @@ void Display4Temps(int row) {
   // lcd.setCursor(9, j);
   // lcd.print("|");
   return;
+  
 }
 
 
 /*
 @brief
-Recieves an array of 6 tempreture readings
+Recieves an array of 8 tempreture readings
 and displays them on an LCD screen.  
 */
-void Display6Temps(int x[]) {
+void Display8Temps(int x[]) {
   String Temp_Disp;
   //lcd.clear();
   // set cursor to first column, first row
@@ -585,21 +597,33 @@ void Display6Temps(int x[]) {
   lcd.print("C");
 
   Temp_Disp = String("4: ") + String(x[3]);
+  lcd.setCursor(0, 3);
+  lcd.print(Temp_Disp);
+  lcd.setCursor(7, 3);
+  lcd.print("C");
+
+  Temp_Disp = String("5: ") + String(x[4]);
   lcd.setCursor(10, 0);
   lcd.print(Temp_Disp);
   lcd.setCursor(19, 0);
   lcd.print("C");
 
-  Temp_Disp = String("5: ") + String(x[4]);
+  Temp_Disp = String("6: ") + String(x[5]);
   lcd.setCursor(10, 1);
   lcd.print(Temp_Disp);
   lcd.setCursor(19, 1);
   lcd.print("C");
 
-  Temp_Disp = String("6: ") + String(x[5]);
+  Temp_Disp = String("7: ") + String(x[6]);
   lcd.setCursor(10, 2);
   lcd.print(Temp_Disp);
   lcd.setCursor(19, 2);
+  lcd.print("C");
+
+  Temp_Disp = String("8: ") + String(x[7]);
+  lcd.setCursor(10, 3);
+  lcd.print(Temp_Disp);
+  lcd.setCursor(19, 3);
   lcd.print("C");
   
   return;
@@ -613,15 +637,18 @@ void displayMenuOption() {
       case HOME:
         //Update the remaining time once every 250ish miliseconds.
         //Maybe move this elsewhere?
-        if (millis() % 250 < 50) {
-          displayRemainingTime(0);
-          displayRemainingTime(1);
-          displayRemainingTime(2);
-          displayRemainingTime(3);
+
+        //for Display4Temps
+        if (numTCperOven.Value() == 1){
+          if (millis() % 250 < 50) {
+            displayRemainingTime(0);
+            displayRemainingTime(1);
+            displayRemainingTime(2);
+            displayRemainingTime(3);
+          }
         }
 
         // Display6Temps(myData.Temps);
-        // Display4Temps();
         //Prints the remaining cook time to the LCD Screen
         // displayRemainingTime(0);
         break;
@@ -771,7 +798,7 @@ void updateMenuValue() {
       ovenID.setValue(ovenID.Value() + rotaryValue);
       break;
     case TEMPERATURE_SETPOINT:
-      temperatureSetpoint.setValue(temperatureSetpoint.Value() + rotaryValue * 10.0);
+      temperatureSetpoint.setValue(temperatureSetpoint.Value() + rotaryValue * 5.00);
       break;
     case COOK_TIME:
       cookTime.setValue(cookTime.Value() + rotaryValue);

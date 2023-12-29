@@ -57,7 +57,7 @@ public:
 //(Defult value, Min value, max value)
 Parameter ovenID(1, 1, 99);                     //The first Oven Number.  Any addational ovens are auto asinged.
 Parameter temperatureSetpoint(225, 0, 500);
-Parameter cookTime(7, 1, 60);                   //Minutes
+Parameter cookTime(7, 2, 999);                   //Minutes
 Parameter dataIntervalTime(60, 1, 240);          //Seconds
 Parameter numTCperOven(1,1,8);                  //Number of RTDs/ Thermocouples per Oven
 Parameter numOvens(4,1,8);                      //Number of Ovens connected to each Transmitter
