@@ -13,16 +13,33 @@
      - Will work with a plain ol' ESP32 for testing purposes.  
      - Adding a menu option requres update to updateMenuOption() 
 
+
+  Version 1.1 Changes [Needs Tested]
+   - Added Boot screen with Version name (Requires manual updateing)
+   - Deisplay8Temps is no longer used
+   - I think that settign the Cook Time to 0 will allow for continuous dataloging.  
+     - Min value changed from 2 Minutes to 0 Minutes.
+   -  
+
      
 */
 
 
 /*
 TODO:
+ - Remove display option for 8 TCs
+ - Do somthing about conveyor oven having 2 puchbuttons
+ - Stacklights on 4 lab ovens is not going to work with current implementation.  Ernie will have to update the firmware.
+
   Necessary Changes for impementation
+   - Set TC_CAL to use tenths of a degree.  This will be a decent project as all temperature data is in integers
+   - Change maximum cook time to >= 1000 hours
    - Add SD card data logging.
       - Add file naming for SD card data saving?
    - Implement tempreture monitoring incase of low-temp.
+   - How to: Display tempretures if NUM_TC_PER_OVEN = 2 and NUM_OVENS = 2? 
+   - How to determine if we are using the 4IO or 8Relay card for Stacklights?
+  
 */
 
 
@@ -57,8 +74,7 @@ bool TC_Check;    //Check to see if the Sequent TC hat exists.
 int status[8] = {0,0,0,0,0,0,0,0};      //Status byte for each oven.
 int prev_status[8] = {1,1,1,1,1,1,1,1}; //Previous status for determinging when to update a stack light. Anything except STARTUP?
 int cycleNum[8]= {0,0,0,0,0,0,0,0};     //Cycle counter for each oven.  
-bool Use8RelayCard = false;             //Systems with >1 stacklight use eight_realy_cardX.  Systems with 1 stack light use four_IO_card0.  
-//int systemType = 1;   //1: System for lab with 4 Ovens and Timing Sys.  2: Conveyor System with 4 TCs per oven.
+bool Use8RelayCard = false;             //Systems with >1 stacklight use eight_realy_cardX.  Systems with 1 stack light use four_IO_card0.  However 8RelayCard detection is not working?
 
 // Structure example to send data
 // Must match the receiver structure
@@ -126,6 +142,30 @@ void setup() {
   Serial.begin(115200);
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
+
+  //===LCD SCREEN===//
+  // set up the LCD's number of columns and rows:
+  lcd.begin(20, 4);
+  //Set the backlight
+  lcd.writeBl(20);
+  lcd.clear();
+  // create a new character
+  lcd.createChar(0, degree);
+
+  //===Boot Screen===//
+  lcd.setCursor(0, 0);    //Column, Row
+  lcd.println("Oven Monitor and Timing System");
+  delay(100);
+  lcd.setCursor(0, 1);    
+  lcd.println("Corry Rubber Co.");
+  delay(100);
+  lcd.setCursor(0, 2);    
+  lcd.println("Jake's Custom Shop");
+  delay(100);
+  lcd.setCursor(0, 3);    
+  lcd.println("Version 1.1");
+  delay(1000);
+
 
   //===SD Card Stuff==//
   if(!SD.begin(SM_ESP32PI_SDCARD_CS)){
@@ -213,6 +253,10 @@ void setup() {
     TC_Card.setType(2,2);
     TC_Card.setType(3,2);
     TC_Card.setType(4,2);
+    TC_Card.setType(5,2);
+    TC_Card.setType(6,2);
+    TC_Card.setType(7,2);
+    TC_Card.setType(8,2);
 
   }
   else{
@@ -224,14 +268,7 @@ void setup() {
     
   }
 
-  //===LCD SCREEN===//
-  // set up the LCD's number of columns and rows:
-  lcd.begin(20, 4);
-  //Set the backlight
-  lcd.writeBl(20);
-  lcd.clear();
-  // create a new character
-  lcd.createChar(0, degree);
+
 
   dataIntervalTimer.startTimer(dataIntervalTime.Value()*1000); //Start a timer to send data packets at specified intervals.
   // for (int i=0; i++; i<4){   //Had an issue with this for some reason.
@@ -364,12 +401,8 @@ void loop() {
       
       //I don't like it but it seems to work.  
       if(currentMenuOption==HOME){
-        if (numTCperOven.Value()==1)
-          Display4Temps(j);    
-        else
-          Display8Temps(myData.Temps);
+        Display4Temps(j);    
       }
-
 
     }//Loop for each oven
   } //Data Send interval 
