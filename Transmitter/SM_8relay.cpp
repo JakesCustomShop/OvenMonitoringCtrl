@@ -30,6 +30,8 @@ SM_8relay::SM_8relay()
 {
 }
 
+
+//.begin() returns 0 if card is detected. (This is backwards from other SM cards)
 uint8_t SM_8relay::begin(uint8_t stack)
 {
 	if (stack < 0)
@@ -47,17 +49,15 @@ uint8_t SM_8relay::begin(uint8_t stack)
 	Wire.beginTransmission(_hwAdd);
 	Wire.write(RELAY8_OUTPORT_REG_ADD);
 	Wire.write(0x00); //make all High
-	if(0 !=  Wire.endTransmission())
-	{
-    _hwAdd = RELAY8_HW_I2C_ALTERNATE_BASE_ADD + stack ^ 0x07; //old card type
-    Wire.begin();
-    Wire.beginTransmission(_hwAdd);
-    Wire.write(RELAY8_OUTPORT_REG_ADD);
-    Wire.write(0x00); //make all High
-    if(0 !=  Wire.endTransmission())
-    {
-      return 1;
-    }
+	if(0 !=  Wire.endTransmission()){
+		_hwAdd = RELAY8_HW_I2C_ALTERNATE_BASE_ADD + stack ^ 0x07; //old card type
+		Wire.begin();
+		Wire.beginTransmission(_hwAdd);
+		Wire.write(RELAY8_OUTPORT_REG_ADD);
+		Wire.write(0x00); //make all High
+		if(0 !=  Wire.endTransmission()){
+			return 1;
+		}
 	}
 
 	Wire.begin();

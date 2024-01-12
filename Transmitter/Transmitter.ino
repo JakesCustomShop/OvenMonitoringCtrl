@@ -19,17 +19,15 @@
    - Deisplay8Temps is no longer used
    - I think that settign the Cook Time to 0 will allow for continuous dataloging.  
      - Min value changed from 2 Minutes to 0 Minutes.
-   -  
-
+   - Fixed detection of 8-relay card.  
+   - added "Use8RelayCard" variable to determine where stacklights are.
      
 */
 
 
 /*
 TODO:
- - Remove display option for 8 TCs
  - Do somthing about conveyor oven having 2 puchbuttons
- - Stacklights on 4 lab ovens is not going to work with current implementation.  Ernie will have to update the firmware.
 
   Necessary Changes for impementation
    - Set TC_CAL to use tenths of a degree.  This will be a decent project as all temperature data is in integers
@@ -62,11 +60,11 @@ SM_LCDAdapter lcd = SM_LCDAdapter();
 // REPLACE WITH THE RECEIVER'S MAC Address
 uint8_t broadcastAddress[] = {0x94,0xB9,0x7E,0xF9,0x3A,0x18};
 
-SM_4REL4IN four_IO_card0(0); //Four Relays four HV Inputs HAT with stack level 0 (no Jmper Installed)
-SM_TC TC_Card(1);     //TC Data Acquisition HAT with stack level 1 (1 jumper installed)
+SM_4REL4IN four_IO_card0(0);                //Four Relays four HV Inputs HAT with stack level 0 (no Jmper Installed)
+SM_TC TC_Card(1);                           //TC Data Acquisition HAT with stack level 1 (1 jumper installed)
 SM_8relay eight_relay_card2 = SM_8relay() ; //Eight Relays HAT with stack level 2
-SM_8relay eight_relay_card3 = SM_8relay(); //Eight Relays HAT with stack level 3 
-// TC_Card.setType(1,TC_TYPE_J);   //Specify the Thermocouple type
+SM_8relay eight_relay_card3 = SM_8relay();  //Eight Relays HAT with stack level 3 
+
 
 //int debug = 0;  //Turns off addational serial print fuctions.
 int debug = 1;    //Basic Debuging.  Enables random numbers for Tempeture values if TC hat is not detected.
@@ -74,7 +72,8 @@ bool TC_Check;    //Check to see if the Sequent TC hat exists.
 int status[8] = {0,0,0,0,0,0,0,0};      //Status byte for each oven.
 int prev_status[8] = {1,1,1,1,1,1,1,1}; //Previous status for determinging when to update a stack light. Anything except STARTUP?
 int cycleNum[8]= {0,0,0,0,0,0,0,0};     //Cycle counter for each oven.  
-bool Use8RelayCard = false;             //Systems with >1 stacklight use eight_realy_cardX.  Systems with 1 stack light use four_IO_card0.  However 8RelayCard detection is not working?
+bool Use8RelayCard = false;             //Systems with >1 stacklight use eight_realy_cardX.  Systems with 1 stack light use four_IO_card0.
+int TC_Offsets[9] = {0,0,0,0,0,0,0,0,0};        //9 Elements so tc_cali_mode can be used for indexing.  tc_cali_mode.  First element will allways be 0 
 
 // Structure example to send data
 // Must match the receiver structure
@@ -153,33 +152,34 @@ void setup() {
   lcd.createChar(0, degree);
 
   //===Boot Screen===//
+  lcd.clear();
   lcd.setCursor(0, 0);    //Column, Row
-  lcd.println("Oven Monitor and Timing System");
-  delay(100);
+  lcd.print("Oven Monitor Timing");
+  delay(200);
   lcd.setCursor(0, 1);    
-  lcd.println("Corry Rubber Co.");
-  delay(100);
+  lcd.print("Corry Rubber Co");
+  delay(200);
   lcd.setCursor(0, 2);    
-  lcd.println("Jake's Custom Shop");
-  delay(100);
+  lcd.print("Jake's Custom Shop");
+  delay(200);
   lcd.setCursor(0, 3);    
-  lcd.println("Version 1.1");
-  delay(1000);
-
+  lcd.print("Version 1.1");
+  delay(2500);
+  lcd.clear();
 
   //===SD Card Stuff==//
   if(!SD.begin(SM_ESP32PI_SDCARD_CS)){
     Serial.println("Card Mount Failed");
     lcd.setCursor(0, 0);    //Column, Row
     lcd.print("Card Mount Failed");           //Clear the remaining time.
-    delay(2000);
+    delay(3000);
   }
   uint8_t cardType = SD.cardType();
   if(cardType == CARD_NONE){
     Serial.println("No SD card attached");
     lcd.setCursor(0, 1);    //Column, Row
     lcd.print("No SD card attached");           //Clear the remaining time.
-    delay(2000);
+    delay(3000);
   }
   
   //Reads the parameter file on the SD card.
@@ -194,29 +194,31 @@ void setup() {
 
 
 
-//4Relay 4 HV
-  if (four_IO_card0.begin() )
-  {
+  //===4Relay 4 HV===// 
+  if (four_IO_card0.begin() ){
     Serial.print("Four Relays four HV Inputs Card detected\n");
     four_IO_card0.writeRelay(LOW);
   }
-  else
-  {
+  else{
     Serial.print("Four Relays four HV Inputs Card NOT detected!\n");
   }
-  //8Relay stack level 2
-  if (eight_relay_card2.begin(2) )
+  
+  //===8Relay stack level 2===//
+  if (0 == eight_relay_card2.begin(2) )
   {
     Serial.print("Eight Relays Card detected\n");
-    // Use8RelayCard = true;
+    Use8RelayCard = true;
     // eight_relay_card2.writeChannel(LOW);
   }
   else{
     Serial.print("Eight Relays Card NOT detected!\n");
+    lcd.setCursor(0, 3);    //Column, Row
+    lcd.print("8Relay card 2 Error");           //Clear the remaining time.
+    delay(3000);
     Use8RelayCard = false;
   }
-  //8relay stack level 3
-  if (eight_relay_card3.begin(3) )
+  //===8Relay stack level 3===//
+  if (0 == eight_relay_card3.begin(3) )   //.begin() returns 0 if card is detected. (This is backwards from other SM cards)
   {
     Serial.print("Eight Relays Card detected\n");
     // eight_relay_card3.writeChannel(LOW);
@@ -224,6 +226,9 @@ void setup() {
   else
   {
     Serial.print("Eight Relays Card NOT detected!\n");
+    lcd.setCursor(0, 3);    //Column, Row
+    lcd.print("8Relay card 3 Error");           //Clear the remaining time.
+    delay(3000);
   }
 
   // Init ESP-NOW
@@ -263,7 +268,7 @@ void setup() {
     Serial.print("TC HAT NOT detected!\n");
     lcd.setCursor(0, 2);    //Column, Row
     lcd.print("TC HAT NOT detected!");           //Clear the remaining time.
-    delay(2000);
+    delay(3000);
     TC_Check=false;
     
   }
@@ -281,6 +286,13 @@ void setup() {
   StackLightOffTimer[3].startTimer(1);
   StackLightOnTimer[3].startTimer(1);
   // }
+
+  //So the screen atleast displays somthing
+  lcd.clear();
+  for(int i=0;i<5;i++) {
+    Display4Temps(i);
+  }
+
 }
 
 
@@ -298,7 +310,7 @@ void loop() {
     //===Handle Start/Stop Button on for timer[i]===//
     //Should be compatible with up to 4 Start/Stop buttons for 4 ovens.
     // if (lcd.readButtonLatch(j+2)){   //for use with LCD screen buttons
-    if (four_IO_card0.readOptoAC(j+1)) {        //Ideal if we can create a readButtonLatch version for relay card
+    if (four_IO_card0.readOptoAC(j+1) || lcd.readButtonLatch(j+2)) {        //Ideal if we can create a readButtonLatch version for relay card
       while(four_IO_card0.readOpto(j+1)){       //Wait for the button to be released. SM IO are indexed at 1
         delay(100);
       }
@@ -575,7 +587,7 @@ void displayRemainingTime(int oven) {
     lcd.print("   ");           //Clear the remaining time.
     lcd.setCursor(10, oven);    //Column, Row
     lcd.print(timer[oven].remainingTime()/60000);   //converts to minutes
-    lcd.setCursor(13, oven);    //Column, Row
+    lcd.setCursor(14, oven);    //Column, Row
     lcd.print("Min");
     lcd.setCursor(19, oven);    //Column, Row
     lcd.print(status[oven]);
@@ -764,7 +776,7 @@ void displayMenuOption() {
         lcd.print(tc_cali_mode.Value());
         lcd.print(":");
         lcd.setCursor(0, 2);    //Column, Row
-        lcd.print(TC_Card.readTemp(tc_cali_mode.Value())+TC_Offsets[tc_cali_mode.Value()]);   //Use the rotery encoder to hone in the temp.
+        lcd.print(int(TC_Card.readTemp(tc_cali_mode.Value()))+TC_Offsets[tc_cali_mode.Value()]);   //Use the rotery encoder to hone in the temp.
         lcd.write((byte)0);       //Degree Symbol
         lcd.print("C ");
         break;
@@ -852,7 +864,6 @@ void updateMenuValue() {
       tc_cali_mode.setValue(tc_cali_mode.Value() + rotaryValue);
       break;
     case TC_CALI: 
-      // tc_offset_1.setValue(TC_Offsets[tc_cali_mode.Value()] + rotaryValue);
       TC_Offsets[tc_cali_mode.Value()] += rotaryValue;
       break;
   }
@@ -968,9 +979,11 @@ void readParameterFile(fs::FS &fs, const char * path){
     Serial.print("buzzerMode: ");
     Serial.println(buzzerMode.Value());
     Serial.print("tcOffsets: ");
-    Serial.println(TC_Offsets[1]+','+TC_Offsets[2]+','+TC_Offsets[3]+','+TC_Offsets[4]+','+TC_Offsets[5]+','+TC_Offsets[6]+','+TC_Offsets[7]+','+TC_Offsets[8]);
-    // Serial.print("cycleNum: ");
-    // Serial.println(cycleNum[ovenID.Value()]);
+    for (int i=1;i<9;i++){
+      Serial.println(TC_Offsets[i]);
+      // Serial.print(' ');
+    }
+    Serial.println();
   }
 
 
