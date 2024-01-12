@@ -21,6 +21,9 @@
      - Min value changed from 2 Minutes to 0 Minutes.
    - Fixed detection of 8-relay card.  
    - added "Use8RelayCard" variable to determine where stacklights are.
+   - Changed TC calibration values and display to intergers only
+   - SM LCD hat & hard-ware buttons both start/ stop timers.
+   - settign cook time of 0 turns off the timer. and should keep collecting data.
      
 */
 

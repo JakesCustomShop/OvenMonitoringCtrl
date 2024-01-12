@@ -1,5 +1,6 @@
 from audioop import findfit
 from doctest import master
+from glob import glob
 import tkinter as tk
 from tkinter import *
 from tkinter import ttk
@@ -12,6 +13,7 @@ import numpy as np
 import configparser
 from pathlib import Path
 from PIL import ImageTk, Image
+from GlobalVars import *
 
 
 
@@ -28,12 +30,11 @@ debug = 1   #Print Statments
 
 Path('C:\JCS\OvenMonitorTime').mkdir(parents=True, exist_ok=True)     # set the config file location
 config_location = Path('C:\JCS\OvenMonitorTime\param_config.ini')
-calibration_csv = "C:\JCS\OvenMonitorTime\calibration.csv"
 sample_count = 0     #counts each time the machine is ran.  Used for incrementing file names
 
 #Defualt information saved in the param_config.ini file.  If the .ini is missing or
 #Not written correctly, the old one will be overwritten with these values.
-dir_name = "C:\JCS\OvenMonitorTime"   #Save location for .csv data.
+#dir_name = "C:\JCS\OvenMonitorTime"   #Save location for .csv data.
 file_name = 'TestData'      
 test_dur = 2                            #Test Durration in seconds
 sample_frequency = 100                  #Sample Frequency in Hz
@@ -42,7 +43,6 @@ sample_frequency = 100                  #Sample Frequency in Hz
 
 #TODO
 #Add Sample count to .csv file
-#Add link/ email/ JCS.com to GUI for product support.
 
 #=========================
 #  code to ensure a cleaan exit
@@ -67,8 +67,8 @@ tkArd.title("Oven Monitoring and Timing")
 error_msg = StringVar() # for use in the mainscreen
 error_msg.set("starting")
 
-	# the next line must come after  tkArd = Tk() so that a StringVar()
-	#   can be created in checkForData.
+# the next line must come after  tkArd = Tk() so that a StringVar()
+#   can be created in checkForData.
 import arduinoCheckForData as cD # so we can refer to its variables
 
 #======================

@@ -1,4 +1,5 @@
 
+from glob import glob
 from msilib import Table
 from tkinter import *
 from tkinter import ttk
@@ -12,6 +13,8 @@ from pandas import read_csv			#May be able to delete this
 
 #from arduinoGUI2 import error_msg
 #from arduinoGUI2 import debug
+from GlobalVars import *			#Global Variables
+
 
 debug = 0	#No Debugging
 #debug = 1	#Debuging messages.
@@ -68,7 +71,7 @@ def SaveData(OvenID):
 	#File Saving Stuff
 	#===========================
 	file_name = buildFileName(OvenID)
-	dir_name = "C:\JCS\OvenMonitorCtrl"
+	#dir_name = "C:\JCS\OvenMonitorCtrl"
 	#dir_filename = dir_name + '/' + file_name + '{:03d}'.format(sample_count) + '.csv'
 	dir_filename = dir_name + '/' + file_name + '.csv'
 	if debug:print(dir_filename)
