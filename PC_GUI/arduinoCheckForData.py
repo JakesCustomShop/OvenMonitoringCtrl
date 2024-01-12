@@ -15,11 +15,6 @@ from pandas import read_csv			#May be able to delete this
 #from arduinoGUI2 import debug
 from GlobalVars import *			#Global Variables
 
-
-debug = 0	#No Debugging
-#debug = 1	#Debuging messages.
-
-
 #======================
 
 # global variables for module
@@ -27,8 +22,6 @@ debug = 0	#No Debugging
 inputData = ""
 threadRun = True
 checkDelay = 0.2 # seconds
-
-testVar = "testvar"
 
 displayVal = StringVar() # for use in the mainscreen
 displayVal.set("starting")

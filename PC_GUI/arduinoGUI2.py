@@ -18,14 +18,7 @@ from GlobalVars import *
 
 
 
-################################################
-global debug
-#debug = 0   #Debug mode off.
-debug = 1   #Print Statments
-#debug = 2  #skips datacollection
-
-
-################################################
+#=========================
 #System Defults:
 
 Path('C:\JCS\OvenMonitorTime').mkdir(parents=True, exist_ok=True)     # set the config file location
@@ -33,19 +26,17 @@ config_location = Path('C:\JCS\OvenMonitorTime\param_config.ini')
 sample_count = 0     #counts each time the machine is ran.  Used for incrementing file names
 
 #Defualt information saved in the param_config.ini file.  If the .ini is missing or
-#Not written correctly, the old one will be overwritten with these values.
-#dir_name = "C:\JCS\OvenMonitorTime"   #Save location for .csv data.
+#Not written correctly, the old one will be overwritten with these values
 file_name = 'TestData'      
 test_dur = 2                            #Test Durration in seconds
 sample_frequency = 100                  #Sample Frequency in Hz
 
-################################################
 
 #TODO
 #Add Sample count to .csv file
 
 #=========================
-#  code to ensure a cleaan exit
+#  code to ensure a clean exit
 
 def exit_handler():
     print ('My application is ending!')
@@ -55,17 +46,16 @@ def exit_handler():
 atexit.register(exit_handler)
 
 #===========================
-# global variables for this module
+#Global variables for this module
 
 tkArd = tk.Tk()
 tkArd.minsize(width=320, height=170)
 tkArd.config()
 tkArd.title("Oven Monitoring and Timing")
 
-#Initialize the error message
-
+#Initialize the error message that appears at the bottom of the GUI
 error_msg = StringVar() # for use in the mainscreen
-error_msg.set("starting")
+#error_msg.set("starting")
 
 # the next line must come after  tkArd = Tk() so that a StringVar()
 #   can be created in checkForData.
@@ -215,7 +205,7 @@ def mainScreen():
 	SpacerA = tk.Label(masterframe, width = 5, height = 2) 
 	SpacerB = tk.Label(masterframe, width = 5, height = 2) 
 	SpacerC = tk.Label(masterframe, width = 5, height = 2) 
-	error_label = tk.Label(masterframe)#, textvariable = error_msg) 
+	error_label = tk.Label(masterframe, textvariable = error_msg) 
 
 	 
 	SpacerA.grid(row = 0, column = 0, columnspan=5)
