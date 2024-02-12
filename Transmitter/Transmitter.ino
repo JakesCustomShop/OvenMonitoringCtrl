@@ -17,13 +17,13 @@
   Version 1.1 Changes [Needs Tested]
    - Added Boot screen with Version name (Requires manual updateing)
    - Deisplay8Temps is no longer used
-   - I think that settign the Cook Time to 0 will allow for continuous dataloging.  
+   - I think that setting the Cook Time to 0 will allow for continuous dataloging.  
      - Min value changed from 2 Minutes to 0 Minutes.
    - Fixed detection of 8-relay card.  
    - added "Use8RelayCard" variable to determine where stacklights are.
    - Changed TC calibration values and display to intergers only
    - SM LCD hat & hard-ware buttons both start/ stop timers.
-   - settign cook time of 0 turns off the timer. and should keep collecting data.
+   - setting cook time of 0 turns off the timer and should keep collecting data.
      
 */
 
@@ -32,7 +32,7 @@
 TODO:
  - Do somthing about conveyor oven having 2 puchbuttons
 
-  Necessary Changes for impementation
+  Necessary Changes for implemention
    - Set TC_CAL to use tenths of a degree.  This will be a decent project as all temperature data is in integers
    - Change maximum cook time to >= 1000 hours
    - Add SD card data logging.

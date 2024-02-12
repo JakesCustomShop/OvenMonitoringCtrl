@@ -13,8 +13,8 @@ import numpy as np
 import configparser
 from pathlib import Path
 from PIL import ImageTk, Image
-from GlobalVars import *
-
+import GlobalVars as GV
+debug = GV.debug
 
 
 
@@ -24,6 +24,8 @@ from GlobalVars import *
 Path('C:\JCS\OvenMonitorTime').mkdir(parents=True, exist_ok=True)     # set the config file location
 config_location = Path('C:\JCS\OvenMonitorTime\param_config.ini')
 sample_count = 0     #counts each time the machine is ran.  Used for incrementing file names
+#global dir_name
+GV.dir_name = "C:\JCS\OvenMonitorTime"
 
 #Defualt information saved in the param_config.ini file.  If the .ini is missing or
 #Not written correctly, the old one will be overwritten with these values
@@ -73,12 +75,12 @@ def setupView():
 
 #Read Configuration File
 def read_config():
-    global dir_name, file_name, test_dur, sample_frequency
+    global file_name, test_dur, sample_frequency
 
     config = configparser.RawConfigParser()
     try:      #check if a config file exists & has the correct sections.
         config.read(config_location)
-        dir_name = config.get('File', 'dir')
+        GV.dir_name = config.get('File', 'dir')
         file_name = config.get('Parameters', 'file_name')
         test_dur = config.getfloat('Parameters', 'test_dur')
         sample_frequency = config.getfloat('Parameters', 'sample_frequency')
@@ -87,7 +89,7 @@ def read_config():
     except: #If config file has errors or DNE
         config.clear()           #Delete the existing param_config.ini
         config.add_section('File')
-        config.set('File', 'dir', dir_name)
+        config.set('File', 'dir', GV.dir_name)
         config.add_section('Parameters')
         config.set('Parameters', 'file_name', file_name)
         config.set('Parameters', 'test_dur', test_dur)
@@ -101,15 +103,15 @@ def read_config():
 #Pulls values directly from tkinter GUI
 def save_config():  
 	if debug:print("Updating Config File")
-	global error_msg, dir_name, file_name, test_dur, sample_frequency, sample_count, config
+	global error_msg, file_name, test_dur, sample_frequency, sample_count, config
 
 	config = configparser.RawConfigParser()
-	if dir_name==0:     #if a new directory is not defined, use the old
+	if GV.dir_name==0:     #if a new directory is not defined, use the old
 		config.read(config_location)
-		dir_name = config.get('File', 'dir')
+		GV.dir_name = config.get('File', 'dir')
 	else:
 		config.add_section('File')
-		config.set('File', 'dir', dir_name)
+		config.set('File', 'dir', GV.dir_name)
 
 	if config.has_section('Parameters'):
 		config.set('Parameters', 'file_name', file_name.get())
@@ -122,7 +124,6 @@ def save_config():
 		#config.set('Parameters', 'sample_frequency', tk_sample_frequency.get())
 
 	config.write(open(config_location, "w"))
-    
 	if debug:
 		print("Config File Updated")
 		print(test_dur+1-1)  #A creative way to make sure we are working with ints.
@@ -134,11 +135,11 @@ def save_config():
 # button to ask for directory to save output data to.
 def get_dir():
 	print("Selecting Directory")
-	global dir_name
-	dir_name = filedialog.askdirectory(initialdir = "/",title = "Select Directory")
-	dir_name_text.set(dir_name)
+	#global GV.dir_name
+	GV.dir_name = filedialog.askdirectory(initialdir = "/",title = "Select Directory")
+	dir_name_text.set(GV.dir_name)
 	masterframe.update_idletasks()
-	if dir_name=='':
+	if GV.dir_name=='':
 		error_msg.set("WARNING: No File Save Directory set")
 	else:
 		error_msg.set("Directory Updated")
@@ -183,10 +184,10 @@ def mainScreen():
 	################################################
 	read_config()
 	dir_name_text = StringVar()
-	dir_name_text.set(dir_name)
+	dir_name_text.set(GV.dir_name)
 	dir_name_label = tk.Label(masterframe, textvariable = dir_name_text)
 	
-	dir_name_text.set(dir_name)
+	dir_name_text.set(GV.dir_name)
 	masterframe.update_idletasks()
 	################################################
 

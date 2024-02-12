@@ -13,7 +13,9 @@ from pandas import read_csv			#May be able to delete this
 
 #from arduinoGUI2 import error_msg
 #from arduinoGUI2 import debug
-from GlobalVars import *			#Global Variables
+
+import GlobalVars as GV #Global Variables
+debug = GV.debug
 
 #======================
 
@@ -29,7 +31,7 @@ displayVal.set("starting")
 #======================
 
 def checkForData():
-	global threadRun, checkDelay, dir_name, error_msg
+	global threadRun, checkDelay,  error_msg
 	print ("Starting to Listen")
 	oldDataInput = "waiting"
 	while threadRun == True:
@@ -59,14 +61,12 @@ def checkForData():
 
 #Saves a 2D array to a .csv file from Global OvenDataObject
 def SaveData(OvenID):
-	global dir_name
+	#global GV.dir_name
 
 	#File Saving Stuff
 	#===========================
 	file_name = buildFileName(OvenID)
-	#dir_name = "C:\JCS\OvenMonitorCtrl"
-	#dir_filename = dir_name + '/' + file_name + '{:03d}'.format(sample_count) + '.csv'
-	dir_filename = dir_name + '/' + file_name + '.csv'
+	dir_filename = GV.dir_name + '/' + file_name + '.csv'
 	if debug:print(dir_filename)
 	
 	try:        #Prevent the user from acidently overwriting old data.
