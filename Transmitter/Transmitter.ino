@@ -57,7 +57,7 @@ TODO:
 #include "SPI.h"
 #include "SM_ESP32Pi.h"
 #include "SM_4REL4IN.h"
-#include "SM_8relay.h"
+
 SM_LCDAdapter lcd = SM_LCDAdapter();
 
 // REPLACE WITH THE RECEIVER'S MAC Address
@@ -273,7 +273,7 @@ void setup() {
     lcd.print("TC HAT NOT detected!");           //Clear the remaining time.
     delay(3000);
     TC_Check=false;
-    
+    dataIntervalTime.setValue(1);
   }
 
 
