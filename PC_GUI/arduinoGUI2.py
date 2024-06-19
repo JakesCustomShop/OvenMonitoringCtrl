@@ -29,6 +29,7 @@ import GlobalVars as GV
 debug = GV.debug
 col_header = GV.col_header
 row_header = GV.row_header
+
 user_comment = GV.user_comment
 
 
@@ -404,62 +405,11 @@ def radioBtnPress():
 
 
 
-
-# Function to handle cell selection
-def row_header_callback(event):
-	global row_header, table
-	item = table.identify_region(event.x, event.y)
-	col = table.identify_column(event.x)
-	row = table.identify_row(event.y)
-	if (item == "cell"):
-		print(f"Cell selected - Column: {col}, Row: {row}")
-	if (col == "#1"):
-		print(f"Row {row} Selected")
-		
-		edit_row_header_win = Tk()
-		edit_row_header_win.minsize(width=320, height=170)
-		edit_row_header_win.title("Enter Row Name")
-		# Label asking for user input
-		label = Label(edit_row_header_win, text="Enter the row header name:")
-		label.pack()
-
-		# Entry field for user input
-		entry_column_name = Entry(edit_row_header_win)
-		entry_column_name.pack()
-
-		row_header = "tempstring"
-		# Callback function for when a user Submits a new column header name.
-		def get_name_and_close():
-			#This function retrieves the text from the entry field and closes the window.
-			row_header = entry_column_name.get()
-			
-			if row_header:  # Check if user entered a name
-				# Use the column_name variable in your program logic
-				print(f"You entered: {row_header}")
-				edit_row_header_win.destroy()  # Close the windows
-				# table.destroy()
-				# build_table(masterframe)
-				table.item(row, values=row_header)
-				save_config()
-			else:
-				print("Please enter a column header name.")
-
-		# Button to submit the name
-		button = Button(edit_row_header_win, text="Submit", command=get_name_and_close)
-		button.pack()
-
-
-		edit_row_header_win.mainloop()
-
-
-
-
-
-
 #============================
 # Create a treeview table
 
 def build_table(masterframe):
+
 
 	global table, col_header, row_header
 	table = ttk.Treeview( 
@@ -492,6 +442,56 @@ def build_table(masterframe):
 	data = [(' ', ' '), (' ', ' '), (' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' ')]
 	for item in data:
 		table.insert('', 'end', values=item)
+
+
+#============================
+# Ask the user to name a row header
+def row_header_callback(event):
+	global row_header, table
+	print(row_header)
+	item = table.identify_region(event.x, event.y)
+	col = table.identify_column(event.x)
+	row = table.identify_row(event.y)
+	row = int(str(row)[3])
+	print(f"row: {row}")
+	if (item == "cell"):
+		print(f"Cell selected - Column: {col}, Row: {row}")
+	if (col == "#1"):
+		print(f"Row {row} Selected")
+		
+		edit_row_header_win = Tk()
+		edit_row_header_win.minsize(width=320, height=170)
+		edit_row_header_win.title("Enter Row Name")
+		# Label asking for user input
+		label = Label(edit_row_header_win, text="Enter the row header name:")
+		label.pack()
+
+		# Entry field for user input
+		entry_row_name = Entry(edit_row_header_win)
+		entry_row_name.pack()
+
+		# Callback function for when a user Submits a new row header name.
+		def get_name_and_close():
+			#This function retrieves the text from the entry field and closes the window.
+			row_header[row] = entry_row_name.get()
+			
+			if row_header[row]:  # Check if user entered a name
+				# Use the row_name variable in your program logic
+				print(f"You entered: {row_header[row]}")
+				edit_row_header_win.destroy()  # Close the windows
+				# table.destroy()
+				# build_table(masterframe)
+				table.item(table.get_children()[row-1], values=row_header[row])
+				save_config()
+			else:
+				print("Please enter a row header name.")
+
+		# Button to submit the name
+		button = Button(edit_row_header_win, text="Submit", command=get_name_and_close)
+		button.pack()
+
+
+		edit_row_header_win.mainloop()
 
 
 
@@ -719,14 +719,10 @@ def stopListening():
 def update_row(table, row_index, new_values):
 	if (debug):
 		print("Updating Table")
-	table.item(table.get_children()[row_index-1], values=list(new_values))
-
-
-
-	
-
-
-
+	new_values = list(new_values)
+	new_values[0] = row_header[new_values[0]]		#replace the oven num with row header
+	table.item(table.get_children()[row_index-1], values=new_values)
+	# table.item(table.get_children()[row_index-1], values=row_header[row_index])
 
 
 
