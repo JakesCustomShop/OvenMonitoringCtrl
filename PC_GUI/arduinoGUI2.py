@@ -29,6 +29,7 @@ import GlobalVars as GV
 debug = GV.debug
 col_header = GV.col_header
 row_header = GV.row_header
+num_rows = GV.num_rows
 
 user_comment = GV.user_comment
 
@@ -42,6 +43,7 @@ user_comment = GV.user_comment
 # 5) Defult file-save directory saved between restarts.		✓
 # 6) Udate HW settings from PC GUI
 # 7) Add user comment field to each row/ Column
+# 8) Why can't rows_headers be edited for rows above 10?  Becasue its a hexadecimal value lol.
 
 
 
@@ -117,16 +119,24 @@ def read_config():
 		col_header[6] =	config.get('Parameters', 'col_header6')
 		col_header[7] =	config.get('Parameters', 'col_header7')
 
-		row_header[0] =	config.get('Parameters', 'row_header0')
-		row_header[1] =	config.get('Parameters', 'row_header1')
-		row_header[2] =	config.get('Parameters', 'row_header2')
-		row_header[3] =	config.get('Parameters', 'row_header3')
-		row_header[4] =	config.get('Parameters', 'row_header4')
-		row_header[5] =	config.get('Parameters', 'row_header5')
-		row_header[6] =	config.get('Parameters', 'row_header6')
-		row_header[7] =	config.get('Parameters', 'row_header7')
-		#test_dur = config.getfloat('Parameters', 'test_dur')
-		#sample_frequency = config.getfloat('Parameters', 'sample_frequency')
+		# row_header[0] =	config.get('Parameters', 'row_header0')
+		# row_header[1] =	config.get('Parameters', 'row_header1')
+		# row_header[2] =	config.get('Parameters', 'row_header2')
+		# row_header[3] =	config.get('Parameters', 'row_header3')
+		# row_header[4] =	config.get('Parameters', 'row_header4')
+		# row_header[5] =	config.get('Parameters', 'row_header5')
+		# row_header[6] =	config.get('Parameters', 'row_header6')
+		# row_header[7] =	config.get('Parameters', 'row_header7')
+		# row_header[8] =	config.get('Parameters', 'row_header8')
+		# row_header[9] =	config.get('Parameters', 'row_header9')
+		# row_header[10] =	config.get('Parameters', 'row_header10')
+		# row_header[11] =	config.get('Parameters', 'row_header11')
+
+		for num in range(0,num_rows):
+			option_text = "row_header" + str(num)		#Create a string for the config file identiier
+			config.get('Parameters', option_text)		#Read the config file
+
+	
 		if debug: print("Successfully read param_config.ini")
 	except:
 		#If config file has errors or DNE
@@ -144,16 +154,24 @@ def read_config():
 		config.set('Parameters', 'col_header6',col_header[6])
 		config.set('Parameters', 'col_header7',col_header[7])
 
-		config.set('Parameters', 'row_header0',row_header[0])
-		config.set('Parameters', 'row_header1',row_header[1])
-		config.set('Parameters', 'row_header2',row_header[2])
-		config.set('Parameters', 'row_header3',row_header[3])
-		config.set('Parameters', 'row_header4',row_header[4])
-		config.set('Parameters', 'row_header5',row_header[5])
-		config.set('Parameters', 'row_header6',row_header[6])
-		config.set('Parameters', 'row_header7',row_header[7])
-		#config.set('Parameters', 'test_dur', test_dur)
-		#config.set('Parameters', 'sample_frequency', sample_frequency)
+		# config.set('Parameters', 'row_header0',row_header[0])
+		# config.set('Parameters', 'row_header1',row_header[1])
+		# config.set('Parameters', 'row_header2',row_header[2])
+		# config.set('Parameters', 'row_header3',row_header[3])
+		# config.set('Parameters', 'row_header4',row_header[4])
+		# config.set('Parameters', 'row_header5',row_header[5])
+		# config.set('Parameters', 'row_header6',row_header[6])
+		# config.set('Parameters', 'row_header7',row_header[7])
+		# config.set('Parameters', 'row_header8',row_header[8])
+		# config.set('Parameters', 'row_header9',row_header[9])
+		# config.set('Parameters', 'row_header10',row_header[10])
+		# config.set('Parameters', 'row_header11',row_header[11])
+
+		for num in range(0,num_rows):
+			option_text = "row_header" + str(num)		#Create a string for the config file identiier
+			config.set('Parameters', option_text, row_header[num])		#Read the config file
+		
+
 		config.write(open(config_location, "w"))
 		if debug: print("Deleted old and creating new param_config.ini file")
 
@@ -163,7 +181,8 @@ def read_config():
 #Pulls values directly from tkinter GUI
 def save_config():  
 	if debug:print("Updating Config File")
-	global error_msg, entry_file_name, file_name,  sample_count, config, user_comment
+	global error_msg, entry_file_name, file_name,  sample_count, config, user_comment, num_rows
+
 
 	file_name = entry_file_name.get()
 	user_comment = entry_user_comment.get()
@@ -189,14 +208,22 @@ def save_config():
 		config.set('Parameters', 'col_header6',col_header[6])
 		config.set('Parameters', 'col_header7',col_header[7])
 
-		config.set('Parameters', 'row_header0',row_header[0])
-		config.set('Parameters', 'row_header1',row_header[1])
-		config.set('Parameters', 'row_header2',row_header[2])
-		config.set('Parameters', 'row_header3',row_header[3])
-		config.set('Parameters', 'row_header4',row_header[4])
-		config.set('Parameters', 'row_header5',row_header[5])
-		config.set('Parameters', 'row_header6',row_header[6])
-		config.set('Parameters', 'row_header7',row_header[7])
+		# config.set('Parameters', 'row_header0',row_header[0])
+		# config.set('Parameters', 'row_header1',row_header[1])
+		# config.set('Parameters', 'row_header2',row_header[2])
+		# config.set('Parameters', 'row_header3',row_header[3])
+		# config.set('Parameters', 'row_header4',row_header[4])
+		# config.set('Parameters', 'row_header5',row_header[5])
+		# config.set('Parameters', 'row_header6',row_header[6])
+		# config.set('Parameters', 'row_header7',row_header[7])
+		# config.set('Parameters', 'row_header8',row_header[8])
+		# config.set('Parameters', 'row_header9',row_header[9])
+		# config.set('Parameters', 'row_header10',row_header[10])
+		# config.set('Parameters', 'row_header11',row_header[11])
+
+		for num in range(0,num_rows):
+			option_text = "row_header" + str(num)
+			config.set('Parameters', option_text, row_header[num])
 		
 		#config.set('Parameters', 'test_dur', tk_test_dur.get())
 		#config.set('Parameters', 'sample_frequency', tk_sample_frequency.get())
@@ -211,14 +238,23 @@ def save_config():
 		config.set('Parameters', 'col_header6',col_header[6])
 		config.set('Parameters', 'col_header7',col_header[7])
 
-		config.set('Parameters', 'row_header0',row_header[0])
-		config.set('Parameters', 'row_header1',row_header[1])
-		config.set('Parameters', 'row_header2',row_header[2])
-		config.set('Parameters', 'row_header3',row_header[3])
-		config.set('Parameters', 'row_header4',row_header[4])
-		config.set('Parameters', 'row_header5',row_header[5])
-		config.set('Parameters', 'row_header6',row_header[6])
-		config.set('Parameters', 'row_header7',row_header[7])
+		# config.set('Parameters', 'row_header0',row_header[0])
+		# config.set('Parameters', 'row_header1',row_header[1])
+		# config.set('Parameters', 'row_header2',row_header[2])
+		# config.set('Parameters', 'row_header3',row_header[3])
+		# config.set('Parameters', 'row_header4',row_header[4])
+		# config.set('Parameters', 'row_header5',row_header[5])
+		# config.set('Parameters', 'row_header6',row_header[6])
+		# config.set('Parameters', 'row_header7',row_header[7])
+		# config.set('Parameters', 'row_header8',row_header[8])
+		# config.set('Parameters', 'row_header9',row_header[9])
+		# config.set('Parameters', 'row_header10',row_header[10])
+
+		for num in range(0,num_rows):
+			option_text = "row_header" + str(num)
+			config.set('Parameters', option_text, row_header[num])
+				
+		
 		
 		#config.set('Parameters', 'test_dur', tk_test_dur.get())
 		#config.set('Parameters', 'sample_frequency', tk_sample_frequency.get())
@@ -419,7 +455,7 @@ def build_table(masterframe):
 		show='headings')
 
 	#Table row defined here
-	table.grid(row=9,column=1,columnspan = 2, ipadx=10, ipady=50)	#Required to show table in masterframe
+	table.grid(row=12,column=1,columnspan = 2, ipadx=10, ipady=50)	#Required to show table in masterframe
 	
 	#build the table columns
 	table.column('ovenid', width=75)
@@ -439,9 +475,11 @@ def build_table(masterframe):
 		print(col_header[num-1])
 
 	# Insert some data into the table
-	data = [(' ', ' '), (' ', ' '), (' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' '),(' ', ' ')]
-	for item in data:
-		table.insert('', 'end', values=item)
+	for num in range(0,num_rows):
+		table.insert('','end', values=(row_header[num], ' ') , iid=num, tags=('ttk' ,'simple'))
+		# table.tag_configure('ttk', background='lightgray')
+
+
 
 
 #============================
@@ -452,8 +490,11 @@ def row_header_callback(event):
 	item = table.identify_region(event.x, event.y)
 	col = table.identify_column(event.x)
 	row = table.identify_row(event.y)
-	row = int(str(row)[3])
 	print(f"row: {row}")
+	row = int(row)
+
+	
+
 	if (item == "cell"):
 		print(f"Cell selected - Column: {col}, Row: {row}")
 	if (col == "#1"):
@@ -479,12 +520,10 @@ def row_header_callback(event):
 				# Use the row_name variable in your program logic
 				print(f"You entered: {row_header[row]}")
 				edit_row_header_win.destroy()  # Close the windows
-				# table.destroy()
-				# build_table(masterframe)
-				table.item(table.get_children()[row-1], values=row_header[row])
+				table.item(table.get_children()[row], values=row_header[row])
 				save_config()
-			else:
-				print("Please enter a row header name.")
+			# else:
+				# print("Please enter a row header name.")
 
 		# Button to submit the name
 		button = Button(edit_row_header_win, text="Submit", command=get_name_and_close)
