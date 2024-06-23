@@ -119,22 +119,9 @@ def read_config():
 		col_header[6] =	config.get('Parameters', 'col_header6')
 		col_header[7] =	config.get('Parameters', 'col_header7')
 
-		# row_header[0] =	config.get('Parameters', 'row_header0')
-		# row_header[1] =	config.get('Parameters', 'row_header1')
-		# row_header[2] =	config.get('Parameters', 'row_header2')
-		# row_header[3] =	config.get('Parameters', 'row_header3')
-		# row_header[4] =	config.get('Parameters', 'row_header4')
-		# row_header[5] =	config.get('Parameters', 'row_header5')
-		# row_header[6] =	config.get('Parameters', 'row_header6')
-		# row_header[7] =	config.get('Parameters', 'row_header7')
-		# row_header[8] =	config.get('Parameters', 'row_header8')
-		# row_header[9] =	config.get('Parameters', 'row_header9')
-		# row_header[10] =	config.get('Parameters', 'row_header10')
-		# row_header[11] =	config.get('Parameters', 'row_header11')
-
-		for num in range(0,num_rows):
-			option_text = "row_header" + str(num)		#Create a string for the config file identiier
-			config.get('Parameters', option_text)		#Read the config file
+		for row in range(0,num_rows):
+			option_text = "row_header" + str(row)		#Create a string for the config file identiier
+			row_header[row] = config.get('Parameters', option_text)		#Read the config file
 
 	
 		if debug: print("Successfully read param_config.ini")
@@ -154,22 +141,9 @@ def read_config():
 		config.set('Parameters', 'col_header6',col_header[6])
 		config.set('Parameters', 'col_header7',col_header[7])
 
-		# config.set('Parameters', 'row_header0',row_header[0])
-		# config.set('Parameters', 'row_header1',row_header[1])
-		# config.set('Parameters', 'row_header2',row_header[2])
-		# config.set('Parameters', 'row_header3',row_header[3])
-		# config.set('Parameters', 'row_header4',row_header[4])
-		# config.set('Parameters', 'row_header5',row_header[5])
-		# config.set('Parameters', 'row_header6',row_header[6])
-		# config.set('Parameters', 'row_header7',row_header[7])
-		# config.set('Parameters', 'row_header8',row_header[8])
-		# config.set('Parameters', 'row_header9',row_header[9])
-		# config.set('Parameters', 'row_header10',row_header[10])
-		# config.set('Parameters', 'row_header11',row_header[11])
-
-		for num in range(0,num_rows):
-			option_text = "row_header" + str(num)		#Create a string for the config file identiier
-			config.set('Parameters', option_text, row_header[num])		#Read the config file
+		for row in range(0,num_rows):
+			option_text = "row_header" + str(row)		#Create a string for the config file identiier
+			config.set('Parameters', option_text, row_header[row])		#Read the config file
 		
 
 		config.write(open(config_location, "w"))
@@ -221,9 +195,9 @@ def save_config():
 		# config.set('Parameters', 'row_header10',row_header[10])
 		# config.set('Parameters', 'row_header11',row_header[11])
 
-		for num in range(0,num_rows):
-			option_text = "row_header" + str(num)
-			config.set('Parameters', option_text, row_header[num])
+		for row in range(0,num_rows):
+			option_text = "row_header" + str(row)
+			config.set('Parameters', option_text, row_header[row])
 		
 		#config.set('Parameters', 'test_dur', tk_test_dur.get())
 		#config.set('Parameters', 'sample_frequency', tk_sample_frequency.get())
@@ -250,9 +224,9 @@ def save_config():
 		# config.set('Parameters', 'row_header9',row_header[9])
 		# config.set('Parameters', 'row_header10',row_header[10])
 
-		for num in range(0,num_rows):
-			option_text = "row_header" + str(num)
-			config.set('Parameters', option_text, row_header[num])
+		for row in range(0,num_rows):
+			option_text = "row_header" + str(row)
+			config.set('Parameters', option_text, row_header[row])
 				
 		
 		
@@ -455,7 +429,7 @@ def build_table(masterframe):
 		show='headings')
 
 	#Table row defined here
-	table.grid(row=12,column=1,columnspan = 2, ipadx=10, ipady=50)	#Required to show table in masterframe
+	table.grid(row=num_rows,column=1,columnspan = 2, ipadx=10, ipady=num_rows*3)	#Required to show table in masterframe
 	
 	#build the table columns
 	table.column('ovenid', width=75)
