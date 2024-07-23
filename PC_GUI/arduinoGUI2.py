@@ -122,7 +122,6 @@ def read_config():
 		for row in range(0,num_rows):
 			option_text = "row_header" + str(row)		#Create a string for the config file identiier
 			row_header[row] = config.get('Parameters', option_text)		#Read the config file
-
 	
 		if debug: print("Successfully read param_config.ini")
 	except:
@@ -277,7 +276,7 @@ def selectPort():
 	l1= tk.Label(masterframe, text = "Select Serial Port: ", width = 50, height = 2) 
 	l1.pack()
 
-	if len(lst) > 0:
+	if lst[0]:
 		for n in lst:
 			r1 = tk.Radiobutton(masterframe, text=n, variable=radioVar, value=n)
 			r1.config(command = radioBtnPress)
@@ -614,7 +613,7 @@ def checkForData():
 			print ("DataInput %s" %(dataInput))
 		if (dataInput.any()):
 			processData(dataInput)
-			update_row(table,dataInput[0], dataInput)		#Update the table.  col 0 is the row number 
+			update_row(table,dataInput[0]-1, dataInput)		#Update the table.  col 0 is the row number 
 		time.sleep(checkDelay)
 
 		#Check each of the OvenDataObjects for a change to Acknowledged Status Byte.  Also check
@@ -733,8 +732,8 @@ def update_row(table, row_index, new_values):
 	if (debug):
 		print("Updating Table")
 	new_values = list(new_values)
-	new_values[0] = row_header[new_values[0]]		#replace the oven num with row header
-	table.item(table.get_children()[row_index-1], values=new_values)
+	new_values[0] = row_header[new_values[0]-1]		#replace the oven num (stored in new_values[0]) with row_header.  Subtract 1 from Oven number 
+	table.item(table.get_children()[row_index], values=new_values)
 	# table.item(table.get_children()[row_index-1], values=row_header[row_index])
 
 

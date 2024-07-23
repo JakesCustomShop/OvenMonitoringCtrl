@@ -44,10 +44,10 @@ TODO:
 */
 
 
+#include <Arduino.h>
 #include "Timer.h"    //Custom Header and C++ file for the Timing System
 #include <esp_now.h>
 #include <WiFi.h>
-
 
 #include "SM_TC.h"
 #include "SM_LCDAdapter.h"
@@ -57,6 +57,7 @@ TODO:
 #include "SPI.h"
 #include "SM_ESP32Pi.h"
 #include "SM_4REL4IN.h"
+
 
 SM_LCDAdapter lcd = SM_LCDAdapter();
 
@@ -299,144 +300,7 @@ void setup() {
 }
 
 
- 
-void loop() {
- 
-  //===COOK TIMING SYSTEM===// 
-  //Continusuly checks each of 6 possible ovens for timer complete.
-  //Some Transmitters will have multiple Ovens attached.
-  for (int j = 0; j < numOvens.Value(); j++) {
-    myData.OvenID=ovenID.Value()+j;     //For systes with multiple ovens, assing myData.ovenID a unique value. 
-                                        //This allows the PC data log to distingush between different ovens
-                                        //connected to the same transmitter.
 
-    //===Handle Start/Stop Button on for timer[i]===//
-    //Should be compatible with up to 4 Start/Stop buttons for 4 ovens.
-    // if (lcd.readButtonLatch(j+2)){   //for use with LCD screen buttons
-    if (four_IO_card0.readOptoAC(j+1) || lcd.readButtonLatch(j+2)) {        //Ideal if we can create a readButtonLatch version for relay card
-      while(four_IO_card0.readOpto(j+1)){       //Wait for the button to be released. SM IO are indexed at 1
-        delay(100);
-      }
-      delay(500);         //Holy cow this elimiates alot of state issues. 
-      cycleNum[j]+=1;     //Count cooking cycles for each oven j.
-
-      if (debug){
-        Serial.print("Button Number: ");
-        Serial.println(j);
-      }
-
-     //This switch determines what to do after the Start/Stop button is pressed
-      switch(status[j]) {
-        case STARTUP:                   //Pre-heating
-        case OVEN_READY:                //Ready
-        case ACKNOWLEDGED:              //Acknowledged, Ready, or Pre-heating  
-          timer[j].startTimer(cookTime.Value()*60000); //Start the timer.  cookTime is units of minutes.
-          status[j] = CYCLE_ACTIVE;
-          Serial.print("Timer Started for: ");
-          Serial.println(cookTime.Value());
-          newDatafile(j);    //Create a new .csv data file for this oven's new cycle.  Applies csv headers.
-          //Flashing Green. No buzzer
-          break;
-        
-        //Turn off the buzzer/ flashy lights
-        case CYCLE_ACTIVE: //Active cycle OR
-        case TIME_COMPLETE: //Time Complete
-          //Turn off buzzer and Inidcator light
-          status[j] = ACKNOWLEDGED;    //Acknowledge (GUI Stops collecting data)
-          Serial.println("Acknowledged (GUI Stops collecting data)");
-          timer[j].startTimer(0);  //Stop the Timer if it is active.
-          break;
-        default:
-          break;
-      }
-    }
-
-    if(!timer[j].checkTimer()){  //When the cooking cycle is complete
-      status[j] = TIME_COMPLETE;    //Time Complete
-      //Two short Beeps and Two short Green Flashes
-      Serial.println("Cooking cycle is complete");
-      Serial.println("Waiting for Acknowledgement.");
-    }   
-  }
-
-  //===DATA TRANSMITTION===//
-  //Runs only when the transmission interval has completed.
-  //Loops for each connected Oven and each TC on each oven.
-  if (!dataIntervalTimer.checkTimer()) {   //When send interval is complete.
-    for (int j = 0; j< numOvens.Value(); j++){
-      myData.OvenID=ovenID.Value()+j;     //For systes with multiple ovens, assiging myData.ovenID a unique value. 
-                                          //This allows the PC data log to distingush between different ovens
-                                          //connected to the same transmitter.
-      
-      myData.Count ++;    //For error checking.  
-      //Can implement a check on the reciever and PC to make sure no transmissions are lost.  
-      if (debug) {
-        Serial.print(myData.OvenID);                      
-        Serial.print(", ");
-        Serial.print(myData.Count);                      
-        Serial.print(", ");
-      }
-      for(int i = 0; i < (numTCperOven.Value()); i++){
-        if (TC_Check){
-          myData.Temps[i] = TC_Card.readTemp(i+j+1) + TC_Offsets[i+j+1];    //TC_Card.readTemp wants 1 thru 8
-          //Tempreture checking
-            if (myData.Temps[i] < temperatureSetpoint.Value())
-              status[j] = STARTUP;                      //Oven temp below setpoint.  
-            else {
-              if (status[j]==STARTUP)                   //Oven temp above setpoint and in mode startup
-                status[j] = OVEN_READY;                 //Set the status to OVEN_READY
-            }
-        }
-        else
-          myData.Temps[i] = random(220,250);
-      }
-
-
-      //Asign unused myData.Temps to zero
-      for(int i = numTCperOven.Value(); i < numTCperOven.getMaxVal(); i++){
-        myData.Temps[i] = 0;
-      }     
-
-      //Build the myData transmission packet
-      myData.Status = status[j];
-      // Send message via ESP-NOW
-      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
-      if (result == ESP_OK)
-        Serial.println("Sent with success");
-      else
-        Serial.println("Error sending the data");
-      dataIntervalTimer.startTimer(dataIntervalTime.Value()*1000);   //Restart the timer
-
-    
-      String myData_String = SerialSendData(myData);           //Send data over USB Serial Port.  Sends a packet for ea. oven
-      
-      //Build a file_name but not a new file.  This must be the same structure as is used for newDataFile();
-      String file_name = "/"+String(myData.OvenID) + "-sampleData-" + String(cycleNum[j]) +".txt";
-      appendFile(SD, file_name, myData_String);   //Adds the data packet from SerialSendData to the SD card file
-      
-      //I don't like it but it seems to work.  
-      if(currentMenuOption==HOME){
-        Display4Temps(j);    
-      }
-
-    }//Loop for each oven
-  } //Data Send interval 
-  
-  
-  //Check each oven to see if the status has been updated.
-  //Status == TIME_COMPLETE blinks the GRN light and thus requries more calls to mangeSatckLight().
-  for (int j = 0; j< numOvens.Value(); j++){
-    if (prev_status[j] != status[j] || status[j] == TIME_COMPLETE) {
-      manageStackLight(status[j], j);  //If the system status is updated, update the stacklight. 
-      prev_status[j] = status[j];
-    }
-  }
-  
-  displayMenuOption();              //Display the current menu option on the LCD screen. Updates countdown timer. And Displays temperature
-  updateMenuOption();               // Update the current menu option
-  updateMenuValue();                // Update the menu value based on the current menu option and the rotary encoder
-}   //Continuous Loop As Fast As Possible
-  
 
 /*
   @brief Creates a new .csv data file for oven j.  
@@ -992,3 +856,144 @@ void readParameterFile(fs::FS &fs, const char * path){
 
   file.close();
 }
+
+
+
+ 
+void loop() {
+ 
+  //===COOK TIMING SYSTEM===// 
+  //Continusuly checks each of 6 possible ovens for timer complete.
+  //Some Transmitters will have multiple Ovens attached.
+  for (int j = 0; j < numOvens.Value(); j++) {
+    myData.OvenID=ovenID.Value()+j;     //For systes with multiple ovens, assing myData.ovenID a unique value. 
+                                        //This allows the PC data log to distingush between different ovens
+                                        //connected to the same transmitter.
+
+    //===Handle Start/Stop Button on for timer[i]===//
+    //Should be compatible with up to 4 Start/Stop buttons for 4 ovens.
+    // if (lcd.readButtonLatch(j+2)){   //for use with LCD screen buttons
+    if (four_IO_card0.readOptoAC(j+1) || lcd.readButtonLatch(j+2)) {        //Ideal if we can create a readButtonLatch version for relay card
+      while(four_IO_card0.readOpto(j+1)){       //Wait for the button to be released. SM IO are indexed at 1
+        delay(100);
+      }
+      delay(500);         //Holy cow this elimiates alot of state issues. 
+      cycleNum[j]+=1;     //Count cooking cycles for each oven j.
+
+      if (debug){
+        Serial.print("Button Number: ");
+        Serial.println(j);
+      }
+
+     //This switch determines what to do after the Start/Stop button is pressed
+      switch(status[j]) {
+        case STARTUP:                   //Pre-heating
+        case OVEN_READY:                //Ready
+        case ACKNOWLEDGED:              //Acknowledged, Ready, or Pre-heating  
+          timer[j].startTimer(cookTime.Value()*60000); //Start the timer.  cookTime is units of minutes.
+          status[j] = CYCLE_ACTIVE;
+          Serial.print("Timer Started for: ");
+          Serial.println(cookTime.Value());
+          newDatafile(j);    //Create a new .csv data file for this oven's new cycle.  Applies csv headers.
+          //Flashing Green. No buzzer
+          break;
+        
+        //Turn off the buzzer/ flashy lights
+        case CYCLE_ACTIVE: //Active cycle OR
+        case TIME_COMPLETE: //Time Complete
+          //Turn off buzzer and Inidcator light
+          status[j] = ACKNOWLEDGED;    //Acknowledge (GUI Stops collecting data)
+          Serial.println("Acknowledged (GUI Stops collecting data)");
+          timer[j].startTimer(0);  //Stop the Timer if it is active.
+          break;
+        default:
+          break;
+      }
+    }
+
+    if(!timer[j].checkTimer()){  //When the cooking cycle is complete
+      status[j] = TIME_COMPLETE;    //Time Complete
+      //Two short Beeps and Two short Green Flashes
+      Serial.println("Cooking cycle is complete");
+      Serial.println("Waiting for Acknowledgement.");
+    }   
+  }
+
+  //===DATA TRANSMITTION===//
+  //Runs only when the transmission interval has completed.
+  //Loops for each connected Oven and each TC on each oven.
+  if (!dataIntervalTimer.checkTimer()) {   //When send interval is complete.
+    for (int j = 0; j< numOvens.Value(); j++){
+      myData.OvenID=ovenID.Value()+j;     //For systes with multiple ovens, assiging myData.ovenID a unique value. 
+                                          //This allows the PC data log to distingush between different ovens
+                                          //connected to the same transmitter.
+      
+      myData.Count ++;    //For error checking.  
+      //Can implement a check on the reciever and PC to make sure no transmissions are lost.  
+      if (debug) {
+        Serial.print(myData.OvenID);                      
+        Serial.print(", ");
+        Serial.print(myData.Count);                      
+        Serial.print(", ");
+      }
+      for(int i = 0; i < (numTCperOven.Value()); i++){
+        if (TC_Check){
+          myData.Temps[i] = TC_Card.readTemp(i+j+1) + TC_Offsets[i+j+1];    //TC_Card.readTemp wants 1 thru 8
+          //Tempreture checking
+            if (myData.Temps[i] < temperatureSetpoint.Value())
+              status[j] = STARTUP;                      //Oven temp below setpoint.  
+            else {
+              if (status[j]==STARTUP)                   //Oven temp above setpoint and in mode startup
+                status[j] = OVEN_READY;                 //Set the status to OVEN_READY
+            }
+        }
+        else
+          myData.Temps[i] = random(220,250);
+      }
+
+
+      //Asign unused myData.Temps to zero
+      for(int i = numTCperOven.Value(); i < numTCperOven.getMaxVal(); i++){
+        myData.Temps[i] = 0;
+      }     
+
+      //Build the myData transmission packet
+      myData.Status = status[j];
+      // Send message via ESP-NOW
+      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
+      if (result == ESP_OK)
+        Serial.println("Sent with success");
+      else
+        Serial.println("Error sending the data");
+      dataIntervalTimer.startTimer(dataIntervalTime.Value()*1000);   //Restart the timer
+
+    
+      String myData_String = SerialSendData(myData);           //Send data over USB Serial Port.  Sends a packet for ea. oven
+      
+      //Build a file_name but not a new file.  This must be the same structure as is used for newDataFile();
+      String file_name = "/"+String(myData.OvenID) + "-sampleData-" + String(cycleNum[j]) +".txt";
+      appendFile(SD, file_name, myData_String);   //Adds the data packet from SerialSendData to the SD card file
+      
+      //I don't like it but it seems to work.  
+      if(currentMenuOption==HOME){
+        Display4Temps(j);    
+      }
+
+    }//Loop for each oven
+  } //Data Send interval 
+  
+  
+  //Check each oven to see if the status has been updated.
+  //Status == TIME_COMPLETE blinks the GRN light and thus requries more calls to mangeSatckLight().
+  for (int j = 0; j< numOvens.Value(); j++){
+    if (prev_status[j] != status[j] || status[j] == TIME_COMPLETE) {
+      manageStackLight(status[j], j);  //If the system status is updated, update the stacklight. 
+      prev_status[j] = status[j];
+    }
+  }
+  
+  displayMenuOption();              //Display the current menu option on the LCD screen. Updates countdown timer. And Displays temperature
+  updateMenuOption();               // Update the current menu option
+  updateMenuValue();                // Update the menu value based on the current menu option and the rotary encoder
+}   //Continuous Loop As Fast As Possible
+  
