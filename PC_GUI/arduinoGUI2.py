@@ -24,6 +24,13 @@ import numpy as np
 import arduinoCommsB as aC
 from pandas import read_csv			#May be able to delete this
 
+#Ploting stuff
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.figure import Figure
+from matplotlib import style
+
+
 #Import custom Global Variables
 import GlobalVars as GV
 debug = GV.debug
@@ -36,7 +43,7 @@ user_comment = GV.user_comment
 
 #TODO:
 #PC GUI software updates: 
-# 1) User Modifiable channel headings ✓ and Oven Names.
+# 1) User Modifiable channel headings ✓ and Oven Names ✓.
 # 2) Data graphing.
 # 3) User Comment field in data file.						✓
 # 4) Data file naming										✓ 
@@ -181,18 +188,6 @@ def save_config():
 		config.set('Parameters', 'col_header6',col_header[6])
 		config.set('Parameters', 'col_header7',col_header[7])
 
-		# config.set('Parameters', 'row_header0',row_header[0])
-		# config.set('Parameters', 'row_header1',row_header[1])
-		# config.set('Parameters', 'row_header2',row_header[2])
-		# config.set('Parameters', 'row_header3',row_header[3])
-		# config.set('Parameters', 'row_header4',row_header[4])
-		# config.set('Parameters', 'row_header5',row_header[5])
-		# config.set('Parameters', 'row_header6',row_header[6])
-		# config.set('Parameters', 'row_header7',row_header[7])
-		# config.set('Parameters', 'row_header8',row_header[8])
-		# config.set('Parameters', 'row_header9',row_header[9])
-		# config.set('Parameters', 'row_header10',row_header[10])
-		# config.set('Parameters', 'row_header11',row_header[11])
 
 		for row in range(0,num_rows):
 			option_text = "row_header" + str(row)
@@ -210,18 +205,6 @@ def save_config():
 		config.set('Parameters', 'col_header5',col_header[5])
 		config.set('Parameters', 'col_header6',col_header[6])
 		config.set('Parameters', 'col_header7',col_header[7])
-
-		# config.set('Parameters', 'row_header0',row_header[0])
-		# config.set('Parameters', 'row_header1',row_header[1])
-		# config.set('Parameters', 'row_header2',row_header[2])
-		# config.set('Parameters', 'row_header3',row_header[3])
-		# config.set('Parameters', 'row_header4',row_header[4])
-		# config.set('Parameters', 'row_header5',row_header[5])
-		# config.set('Parameters', 'row_header6',row_header[6])
-		# config.set('Parameters', 'row_header7',row_header[7])
-		# config.set('Parameters', 'row_header8',row_header[8])
-		# config.set('Parameters', 'row_header9',row_header[9])
-		# config.set('Parameters', 'row_header10',row_header[10])
 
 		for row in range(0,num_rows):
 			option_text = "row_header" + str(row)
@@ -360,6 +343,8 @@ def mainScreen():
 	JCS_com_button.grid(row=11, column=0, columnspan=2)
 	support_button.grid(row=11, column=2, columnspan=2)
 
+	
+
 
 
 def open_support_link():
@@ -370,7 +355,35 @@ def open_JCS_com():
     webbrowser.open("https://jakescustomshop.com")
 
 
+###---Ploting Stuff---###
+count = 0
+def PlotStuff():
+	global masterframe,count
+	print("Ploting Stuff")
+	f = Figure(figsize=(5,5), dpi=100)
+	a = f.add_subplot(111)
+	a.set_title('Force Vs. Time')
+	a.set_ylabel('lbf')
+	a.set_xlabel('Time [S]')
+		# Create a plot
 
+	plotWindow = tk.Frame()
+	canvas = FigureCanvasTkAgg(f, masterframe)
+	canvas.draw()
+	canvas.get_tk_widget().grid(row = 9, column = 1, columnspan=2)
+	# canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+	toolbar = NavigationToolbar2Tk(canvas, plotWindow)
+	toolbar.update()
+	#canvas._tkcanvas.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+
+	a.plot([1,2,3,4,count])
+	count+=1
+	a.set_title('Force Vs. Time')
+	a.set_ylabel('lbf')
+	a.set_xlabel('Time [S]')
+	canvas.draw()        
+	#a.clear()
+	
 
 	
 #=========================
@@ -410,6 +423,8 @@ def radioBtnPress():
 	aC.setupSerial(radioVar.get())
 	listenForData()
 	mainScreen()
+	
+	
 
 
 
@@ -598,10 +613,10 @@ class DataClass():
 #An array of class objects.  First element is empty so indexing can be done with OvenID number (which starts at 1)
 OvenDataObject = [0, DataClass(),DataClass(),DataClass(),DataClass(),DataClass(),DataClass(),DataClass(),DataClass()]
 
-
+ani = 0
 
 def checkForData():
-	global threadRun, checkDelay,  error_msg
+	global threadRun, checkDelay,  error_msg, ani
 	print ("Starting to Listen")
 	oldDataInput = "waiting"
 	while threadRun == True:
@@ -613,7 +628,11 @@ def checkForData():
 			print ("DataInput %s" %(dataInput))
 		if (dataInput.any()):
 			processData(dataInput)
-			update_row(table,dataInput[0]-1, dataInput)		#Update the table.  col 0 is the row number 
+			update_row(table,dataInput[0]-1, dataInput)		#Update the table.  col 0 is the row number 	
+			
+			
+
+			
 		time.sleep(checkDelay)
 
 		#Check each of the OvenDataObjects for a change to Acknowledged Status Byte.  Also check
@@ -709,6 +728,9 @@ def processData(dataRecvd):
 	OvenDataObject[OvenID].append_Status(dataRecvd[10])
 	print("OvenDataObject[i].Status[-1]" + str(OvenDataObject[OvenID].Status[-1]))
 
+
+
+
 	
 
 #======================
@@ -729,12 +751,13 @@ def stopListening():
 #============================
 #Update a specified row in a tkinter Tree View Table
 def update_row(table, row_index, new_values):
+	PlotStuff()
 	if (debug):
 		print("Updating Table")
 	new_values = list(new_values)
 	new_values[0] = row_header[new_values[0]-1]		#replace the oven num (stored in new_values[0]) with row_header.  Subtract 1 from Oven number 
 	table.item(table.get_children()[row_index], values=new_values)
-	# table.item(table.get_children()[row_index-1], values=row_header[row_index])
+	
 
 
 
