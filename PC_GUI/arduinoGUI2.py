@@ -283,6 +283,8 @@ def mainScreen():
 		
 	tkArd.geometry("1000x600")		#Set the Width and Height of the mainScreen
 
+	PlotStuff()
+
 	#Directory name label
 	################################################
 	read_config()
@@ -358,6 +360,8 @@ def open_JCS_com():
 ###---Ploting Stuff---###
 count = 0
 def PlotStuff():
+
+
 	global masterframe,count
 	print("Ploting Stuff")
 	f = Figure(figsize=(5,5), dpi=100)
@@ -367,14 +371,20 @@ def PlotStuff():
 	a.set_xlabel('Time [S]')
 		# Create a plot
 
-	plotWindow = tk.Frame()
-	canvas = FigureCanvasTkAgg(f, masterframe)
+	plotWindow = Tk()
+	plotWindow.minsize(width=320, height=170)
+	plotWindow.title("Enter Row Name")
+	# Label asking for user input
+	label = Label(plotWindow, text="Temperature Plot:")
+	label.pack()
+
+	canvas = FigureCanvasTkAgg(f, plotWindow)
 	canvas.draw()
-	canvas.get_tk_widget().grid(row = 9, column = 1, columnspan=2)
-	# canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+	# canvas.get_tk_widget().grid(row = 9, column = 1, columnspan=2)
+	canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 	toolbar = NavigationToolbar2Tk(canvas, plotWindow)
 	toolbar.update()
-	#canvas._tkcanvas.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+	canvas._tkcanvas.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
 	a.plot([1,2,3,4,count])
 	count+=1
@@ -473,6 +483,7 @@ def build_table(masterframe):
 #============================
 # Ask the user to name a row header
 def row_header_callback(event):
+	
 	global row_header, table
 	print(row_header)
 	item = table.identify_region(event.x, event.y)
@@ -751,7 +762,7 @@ def stopListening():
 #============================
 #Update a specified row in a tkinter Tree View Table
 def update_row(table, row_index, new_values):
-	PlotStuff()
+	
 	if (debug):
 		print("Updating Table")
 	new_values = list(new_values)
