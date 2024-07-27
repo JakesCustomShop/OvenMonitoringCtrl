@@ -29,6 +29,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 from matplotlib import style
+import matplotlib.animation as animation
 
 
 #Import custom Global Variables
@@ -274,16 +275,20 @@ def selectPort():
 
 
 
+
 #======================
 # definition of main screen to control Arduino
 def mainScreen():
-	global masterframe, dir_name_text, error_msg, entry_file_name, entry_user_comment
+	global masterframe, dir_name_text, error_msg, entry_file_name, entry_user_comment, fig
 	for child in masterframe.winfo_children():
 		child.destroy()
 		
 	tkArd.geometry("1000x600")		#Set the Width and Height of the mainScreen
 
-	PlotStuff()
+	BuildPlotWindow()
+	
+	
+
 
 	#Directory name label
 	################################################
@@ -359,16 +364,17 @@ def open_JCS_com():
 
 ###---Ploting Stuff---###
 count = 0
-def PlotStuff():
-
-
-	global masterframe,count
+fig = Figure(figsize=(5,5), dpi=100)
+subplot = fig.add_subplot(111)
+canvas = 0
+plotWindow = 0
+def BuildPlotWindow():
+	global count, fig, subplot, canvas, plotWindow, masterframe
+	
 	print("Ploting Stuff")
-	f = Figure(figsize=(5,5), dpi=100)
-	a = f.add_subplot(111)
-	a.set_title('Force Vs. Time')
-	a.set_ylabel('lbf')
-	a.set_xlabel('Time [S]')
+	subplot.set_title('Force Vs. Time')
+	subplot.set_ylabel('lbf')
+	subplot.set_xlabel('Time [S]')
 		# Create a plot
 
 	plotWindow = Tk()
@@ -378,23 +384,36 @@ def PlotStuff():
 	label = Label(plotWindow, text="Temperature Plot:")
 	label.pack()
 
-	canvas = FigureCanvasTkAgg(f, plotWindow)
+	canvas = FigureCanvasTkAgg(fig, plotWindow)
 	canvas.draw()
-	# canvas.get_tk_widget().grid(row = 9, column = 1, columnspan=2)
-	canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+	# canvas.get_tk_widget().grid(row = 10, column = 1, columnspan=2)				#for integration with masterframe
+	canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)		#For seperate window
 	toolbar = NavigationToolbar2Tk(canvas, plotWindow)
 	toolbar.update()
-	canvas._tkcanvas.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+	# canvas._tkcanvas.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
-	a.plot([1,2,3,4,count])
-	count+=1
-	a.set_title('Force Vs. Time')
-	a.set_ylabel('lbf')
-	a.set_xlabel('Time [S]')
-	canvas.draw()        
-	#a.clear()
+	# subplot.plot([1,2,3,4,count])
+	# count+=1
+	# subplot.set_title('Temperature Vs. Time')
+	# subplot.set_ylabel('Degrees F')
+	# subplot.set_xlabel('Time')
+	# canvas.draw()   
+	animate()     
 	
 
+def animate():
+	global count, canvas, subplot, plotWindow
+	print(f"animate: {count}")
+	subplot.clear()
+	subplot.plot([1,2,3,4,count])
+	count+=1
+	# plotWindow.destroy()
+	
+	# plotWindow.after(100,animate)
+
+
+	
+# ani = animation.FuncAnimation(fig, animate, interval=100)
 	
 #=========================
 # various callback functions
@@ -433,6 +452,7 @@ def radioBtnPress():
 	aC.setupSerial(radioVar.get())
 	listenForData()
 	mainScreen()
+	
 	
 	
 
@@ -627,7 +647,7 @@ OvenDataObject = [0, DataClass(),DataClass(),DataClass(),DataClass(),DataClass()
 ani = 0
 
 def checkForData():
-	global threadRun, checkDelay,  error_msg, ani
+	global threadRun, checkDelay,  error_msg, ani, table
 	print ("Starting to Listen")
 	oldDataInput = "waiting"
 	while threadRun == True:
@@ -640,7 +660,7 @@ def checkForData():
 		if (dataInput.any()):
 			processData(dataInput)
 			update_row(table,dataInput[0]-1, dataInput)		#Update the table.  col 0 is the row number 	
-			
+			animate()
 			
 
 			
@@ -762,12 +782,13 @@ def stopListening():
 #============================
 #Update a specified row in a tkinter Tree View Table
 def update_row(table, row_index, new_values):
-	
+	global canvas
 	if (debug):
 		print("Updating Table")
 	new_values = list(new_values)
 	new_values[0] = row_header[new_values[0]-1]		#replace the oven num (stored in new_values[0]) with row_header.  Subtract 1 from Oven number 
 	table.item(table.get_children()[row_index], values=new_values)
+	
 	
 
 
