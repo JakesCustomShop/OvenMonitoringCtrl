@@ -24,12 +24,14 @@ import numpy as np
 import arduinoCommsB as aC
 from pandas import read_csv			#May be able to delete this
 
+
 #Ploting stuff
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-from matplotlib.figure import Figure
-from matplotlib import style
-import matplotlib.animation as animation
+from matplotlib.backends.backend_tkagg import (
+    FigureCanvasTkAgg, NavigationToolbar2Tk)
+# from matplotlib.backend_bases import key_press_handler
+from matplotlib import pyplot as plt, animation
+import matplotlib.dates as mdates
+
 
 
 #Import custom Global Variables
@@ -275,17 +277,16 @@ def selectPort():
 
 
 
-
 #======================
 # definition of main screen to control Arduino
 def mainScreen():
-	global masterframe, dir_name_text, error_msg, entry_file_name, entry_user_comment, fig
+	global masterframe, dir_name_text, error_msg, entry_file_name, entry_user_comment, fig, ani, subplot
 	for child in masterframe.winfo_children():
 		child.destroy()
 		
 	tkArd.geometry("1000x600")		#Set the Width and Height of the mainScreen
 
-	BuildPlotWindow()
+	# BuildPlotWindow()
 	
 	
 
@@ -346,11 +347,16 @@ def mainScreen():
 
 
 	build_table(masterframe)
+
+
+
+
+
 	error_label.grid(row = 10, column = 0, columnspan=5)
 	JCS_com_button.grid(row=11, column=0, columnspan=2)
 	support_button.grid(row=11, column=2, columnspan=2)
 
-	
+
 
 
 
@@ -361,59 +367,7 @@ def open_JCS_com():
     import webbrowser
     webbrowser.open("https://jakescustomshop.com")
 
-
-###---Ploting Stuff---###
-count = 0
-fig = Figure(figsize=(5,5), dpi=100)
-subplot = fig.add_subplot(111)
-canvas = 0
-plotWindow = 0
-def BuildPlotWindow():
-	global count, fig, subplot, canvas, plotWindow, masterframe
 	
-	print("Ploting Stuff")
-	subplot.set_title('Force Vs. Time')
-	subplot.set_ylabel('lbf')
-	subplot.set_xlabel('Time [S]')
-		# Create a plot
-
-	plotWindow = Tk()
-	plotWindow.minsize(width=320, height=170)
-	plotWindow.title("Enter Row Name")
-	# Label asking for user input
-	label = Label(plotWindow, text="Temperature Plot:")
-	label.pack()
-
-	canvas = FigureCanvasTkAgg(fig, plotWindow)
-	canvas.draw()
-	# canvas.get_tk_widget().grid(row = 10, column = 1, columnspan=2)				#for integration with masterframe
-	canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)		#For seperate window
-	toolbar = NavigationToolbar2Tk(canvas, plotWindow)
-	toolbar.update()
-	# canvas._tkcanvas.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
-
-	# subplot.plot([1,2,3,4,count])
-	# count+=1
-	# subplot.set_title('Temperature Vs. Time')
-	# subplot.set_ylabel('Degrees F')
-	# subplot.set_xlabel('Time')
-	# canvas.draw()   
-	animate()     
-	
-
-def animate():
-	global count, canvas, subplot, plotWindow
-	print(f"animate: {count}")
-	subplot.clear()
-	subplot.plot([1,2,3,4,count])
-	count+=1
-	# plotWindow.destroy()
-	
-	# plotWindow.after(100,animate)
-
-
-	
-# ani = animation.FuncAnimation(fig, animate, interval=100)
 	
 #=========================
 # various callback functions
@@ -644,7 +598,7 @@ class DataClass():
 #An array of class objects.  First element is empty so indexing can be done with OvenID number (which starts at 1)
 OvenDataObject = [0, DataClass(),DataClass(),DataClass(),DataClass(),DataClass(),DataClass(),DataClass(),DataClass()]
 
-ani = 0
+
 
 def checkForData():
 	global threadRun, checkDelay,  error_msg, ani, table
@@ -660,7 +614,7 @@ def checkForData():
 		if (dataInput.any()):
 			processData(dataInput)
 			update_row(table,dataInput[0]-1, dataInput)		#Update the table.  col 0 is the row number 	
-			animate()
+			# animate()
 			
 
 			
@@ -746,18 +700,25 @@ system_status_list = [
 #======================
 # takes an array of data and assigns to the OvenDataObject with a matching Oven ID
 def processData(dataRecvd):
-	global displayVal
+	global displayVal, OvenDataObject
 	displayVal.set(dataRecvd)
-	global OvenDataObject
 	now = datetime.datetime.now()	# Get the current date and time
-	OvenID = dataRecvd[0]	
-	#Asign dataRecvd cells to appropriate locations in OvenDataObject
-	OvenDataObject[OvenID].OvenID = OvenID
-	OvenDataObject[OvenID].append_Count(dataRecvd[1])
-	OvenDataObject[OvenID].append_Temps([dataRecvd[2], dataRecvd[3], dataRecvd[4], dataRecvd[5],dataRecvd[6], dataRecvd[7], dataRecvd[8], dataRecvd[9]])
-	OvenDataObject[OvenID].append_dateTime(now.strftime("%Y-%m-%d %H:%M:%S"))
-	OvenDataObject[OvenID].append_Status(dataRecvd[10])
-	print("OvenDataObject[i].Status[-1]" + str(OvenDataObject[OvenID].Status[-1]))
+	try: 
+		OvenID = dataRecvd[0]	
+		#Asign dataRecvd cells to appropriate locations in OvenDataObject
+		OvenDataObject[OvenID].OvenID = OvenID
+		OvenDataObject[OvenID].append_Count(dataRecvd[1])
+		OvenDataObject[OvenID].append_Temps([dataRecvd[2], dataRecvd[3], dataRecvd[4], dataRecvd[5],dataRecvd[6], dataRecvd[7], dataRecvd[8], dataRecvd[9]])
+		OvenDataObject[OvenID].append_dateTime(now.strftime("%Y-%m-%d %H:%M:%S"))
+		OvenDataObject[OvenID].append_Status(dataRecvd[10])
+	except: 
+		print("Error recieving data")
+
+	
+
+	
+
+
 
 
 
@@ -790,6 +751,7 @@ def update_row(table, row_index, new_values):
 	table.item(table.get_children()[row_index], values=new_values)
 	
 	
+	
 
 
 
@@ -808,11 +770,85 @@ def buildFileName(oven_id: int) -> str:
 
 
 
+#=========Plot Animation Stuff===============
+# def BuildPlot():
+# global plotWin, fig, subplot, line
+plt.rcParams["figure.figsize"] = [7.00, 3.50]
+plt.rcParams["figure.autolayout"] = True
+
+plotWin = tk.Tk()
+plotWin.wm_title("Embedding in Tk")
+
+plt.axes(xlim=(0,10), ylim=(0,255))
+fig = plt.Figure(dpi=100)
+subplot = fig.add_subplot(xlim=(0,10), ylim=(0, 255))
+line, = subplot.plot([], [], lw=2)
+
+canvas = FigureCanvasTkAgg(fig, master=plotWin)
+canvas.draw()
+
+toolbar = NavigationToolbar2Tk(canvas, plotWin, pack_toolbar=False)
+toolbar.update()
+
+button = tk.Button(master=plotWin, text="Quit", command=plotWin.quit)
+button.pack(side=tk.BOTTOM)
+
+toolbar.pack(side=tk.BOTTOM, fill=tk.X)
+canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+def init():
+	global subplot
+	line.set_data([], [])
+	fmt = mdates.DateFormatter('%H:%M:%S')
+	subplot.xaxis.set_major_formatter(fmt)
+	return line,
+
+
+startFrame = 0
+y=[]
+x=[]
+def animate(i):
+	global OvenDataObject, startFrame,y, subplot, x
+	
+	print(f"Animate()")
+	
+	
+	try:
+		y.append(OvenDataObject[1].Temps[-1][0])
+		
+		time = datetime.datetime.strptime(OvenDataObject[1].dateTime[-1], "%Y-%m-%d %H:%M:%S")
+		print("time: ", time)
+		print("time type: ", type(time))
+		x.append(time)
+		print("x[-1]: ",x[-1])
+		# fmt = mdates.DateFormatter('%H:%M:%S')
+
+
+		# x.append(OvenDataObject[1].dateTime[-1])
+		
+		# x.append(i)
+		
+		# print(f"OvenDataObject[1].Temps[i][0]: {y}")
+		# subplot.clear()
+		line.set_data(x,y)  
+		subplot.set_xlim(left=x[0], right=x[-1])
+	except:
+		print("Tried to plot but failed.")
+		startFrame = i
+		
+	return line,
+
+
+anim = animation.FuncAnimation(fig, animate, init_func=init,frames=200, interval=200, blit=True)
+
+
+
 
 #======================
 # code to start the whole process
 
 setupView()
+# BuildPlot()
 tkArd.mainloop()
 
 
