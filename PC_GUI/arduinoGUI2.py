@@ -789,7 +789,8 @@ plotWin.wm_title("Embedding in Tk")
 # fig = plt.Figure(dpi=100)
 # ax1 = fig.add_subplot(xlim=(0,10), ylim=(0, 255))
 fig = plt.figure()
-ax1 = plt.axes(xlim=(-108, -104), ylim=(31,34))
+# ax1 = plt.axes(xlim=(-108, -104), ylim=(31,34))
+ax1 = plt.axes(ylim=(0,255))
 line, = ax1.plot([],[],lw=2)
 
 plotlays, plotcols = [2], ["black","red"]
@@ -825,8 +826,11 @@ startFrame = 0
 # y=[]
 # x=[]
 
-x1,y1 = [],[]
-x2,y2 = [],[]
+# x1,y1 = [],[]
+# x2,y2 = [],[]
+x=[[],[]]
+y=[[],[]]
+
 # fake data
 frame_num = 100
 gps_data = [-104 - (4 * random.rand(2, frame_num)), 31 + (3 * random.rand(2, frame_num))]
@@ -839,8 +843,7 @@ gps_data = [-104 - (4 * random.rand(2, frame_num)), 31 + (3 * random.rand(2, fra
 # 	global OvenDataObject, startFrame, y, ax1, x
 	
 # 	print(f"Animate()")
-	
-	
+		
 # 	try:
 # 		y.append(OvenDataObject[1].Temps[-1][0])
 		
@@ -870,26 +873,36 @@ gps_data = [-104 - (4 * random.rand(2, frame_num)), 31 + (3 * random.rand(2, fra
 
 
 def animate(i):
-	global x1,y1,x2,y2, lines, line
+	global x,y, lines, line, OvenDataObject, startFrame, ax1
 	print("Animate(): ",i)
-	x = gps_data[0][0, i]
-	y = gps_data[1][0, i]
-	x1.append(x)
-	y1.append(y)
+	# x_temp = gps_data[0][0, i]
+	# y_temp = gps_data[1][0, i]
+	# x[0].append(x_temp)
+	try:
+		y[0].append(OvenDataObject[1].Temps[-1][0])
+		y[1].append(OvenDataObject[1].Temps[-1][0]+5)
 
-	x = gps_data[0][1,i]
-	y = gps_data[1][1,i]
-	x2.append(x)
-	y2.append(y)
+		time = datetime.datetime.strptime(OvenDataObject[1].dateTime[-1], "%Y-%m-%d %H:%M:%S")
+		x[0].append(time)
+		print(f"y[0]:", y[0])
+		print(f"y[1]:", y[1])
+		ax1.set_xlim(left=x[0][0], right=x[0][-1])
+	except:
+		print("Waiting for data")
 
-	xlist = [x1, x2]
-	ylist = [y1, y2]
+	x_temp = gps_data[0][1,i]
+	y_temp = gps_data[1][1,i]
+	# x[1].append(x_temp)
+	# y[1].append(y_temp)
+	xlist = [x[0], x[0]]
+	ylist = [y[0], y[1]]
 
 	# for index in range(0,1):
 	for lnum,line in enumerate(lines):
 		line.set_data(xlist[lnum], ylist[lnum]) # set data for each line separately. 
-	return lines
 
+
+	return lines
 
 
 
