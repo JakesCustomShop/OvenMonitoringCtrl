@@ -31,6 +31,7 @@ from matplotlib.backends.backend_tkagg import (
 # from matplotlib.backend_bases import key_press_handler
 from matplotlib import pyplot as plt, animation
 import matplotlib.dates as mdates
+from numpy import random #Can be deleted after multi-line ploting is working
 
 
 
@@ -262,6 +263,13 @@ def selectPort():
 	l1= tk.Label(masterframe, text = "Select Serial Port: ", width = 50, height = 2) 
 	l1.pack()
 
+	
+	if len(lst)==1:
+		aC.setupSerial(lst[0])
+		listenForData()
+		mainScreen()
+		return
+	
 	if lst[0]:
 		for n in lst:
 			r1 = tk.Radiobutton(masterframe, text=n, variable=radioVar, value=n)
@@ -280,7 +288,7 @@ def selectPort():
 #======================
 # definition of main screen to control Arduino
 def mainScreen():
-	global masterframe, dir_name_text, error_msg, entry_file_name, entry_user_comment, fig, ani, subplot
+	global masterframe, dir_name_text, error_msg, entry_file_name, entry_user_comment, fig, ani, ax1
 	for child in masterframe.winfo_children():
 		child.destroy()
 		
@@ -754,7 +762,6 @@ def update_row(table, row_index, new_values):
 	
 
 
-
 def buildFileName(oven_id: int) -> str:
   """Builds a string with the OvenID number and today's date time in the format YYYYMMDD-HHMM
   Returns:
@@ -771,19 +778,27 @@ def buildFileName(oven_id: int) -> str:
 
 
 #=========Plot Animation Stuff===============
-# def BuildPlot():
-# global plotWin, fig, subplot, line
+
+
 plt.rcParams["figure.figsize"] = [7.00, 3.50]
 plt.rcParams["figure.autolayout"] = True
-
 plotWin = tk.Tk()
 plotWin.wm_title("Embedding in Tk")
 
-plt.axes(xlim=(0,10), ylim=(0,255))
-fig = plt.Figure(dpi=100)
-subplot = fig.add_subplot(xlim=(0,10), ylim=(0, 255))
-line, = subplot.plot([], [], lw=2)
+# plt.axes(ylim=(0,255))
+# fig = plt.Figure(dpi=100)
+# ax1 = fig.add_subplot(xlim=(0,10), ylim=(0, 255))
+fig = plt.figure()
+ax1 = plt.axes(xlim=(-108, -104), ylim=(31,34))
+line, = ax1.plot([],[],lw=2)
 
+plotlays, plotcols = [2], ["black","red"]
+lines = []
+for index in range(2):
+	lobj = ax1.plot([],[],lw=2, color=plotcols[index])[0]
+	lines.append(lobj)
+
+# line, = ax1.plot([], [], lw=2)
 canvas = FigureCanvasTkAgg(fig, master=plotWin)
 canvas.draw()
 
@@ -797,49 +812,88 @@ toolbar.pack(side=tk.BOTTOM, fill=tk.X)
 canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
 def init():
-	global subplot
-	line.set_data([], [])
-	fmt = mdates.DateFormatter('%H:%M:%S')
-	subplot.xaxis.set_major_formatter(fmt)
-	return line,
+	global ax1
+	for line in lines:
+		line.set_data([], [])
+	fmt = mdates.DateFormatter('%H:%M')
+	ax1.xaxis.set_major_formatter(fmt)
+	return lines
 
-
+# Ploting multiple lines:
+# https://stackoverflow.com/questions/67869792/how-to-use-line-set-data-for-data-that-is-a-2-dimensional-array-in-matplotlib
 startFrame = 0
-y=[]
-x=[]
+# y=[]
+# x=[]
+
+x1,y1 = [],[]
+x2,y2 = [],[]
+# fake data
+frame_num = 100
+gps_data = [-104 - (4 * random.rand(2, frame_num)), 31 + (3 * random.rand(2, frame_num))]
+
+
+
+
+
+# def animate(i):
+# 	global OvenDataObject, startFrame, y, ax1, x
+	
+# 	print(f"Animate()")
+	
+	
+# 	try:
+# 		y.append(OvenDataObject[1].Temps[-1][0])
+		
+		
+# 		time = datetime.datetime.strptime(OvenDataObject[1].dateTime[-1], "%Y-%m-%d %H:%M:%S")
+# 		# print("time: ", time)
+# 		# print("time type: ", type(time))
+# 		x.append(time)
+# 		# print("x[-1]: ",x[-1])
+# 		# fmt = mdates.DateFormatter('%H:%M:%S')
+
+
+# 		# lines = ax1.plot(np.empty((0, y.shape[1])), np.empty((0, y.shape[1])), lw=2)#temporary for testing
+# 		# for line_k, y_k in zip(line, y):
+# 			# line_k.set_data(x[:i],y_k[:i])  
+# 		line.set_data(x,y)
+		
+		
+# 		ax1.set_xlim(left=x[0], right=x[-1])
+# 		plt.draw()
+# 		plt.ion()
+# 	except:
+# 		print("Tried to plot but failed.")
+# 		startFrame = i
+		
+# 	return line,
+
+
 def animate(i):
-	global OvenDataObject, startFrame,y, subplot, x
-	
-	print(f"Animate()")
-	
-	
-	try:
-		y.append(OvenDataObject[1].Temps[-1][0])
-		
-		time = datetime.datetime.strptime(OvenDataObject[1].dateTime[-1], "%Y-%m-%d %H:%M:%S")
-		print("time: ", time)
-		print("time type: ", type(time))
-		x.append(time)
-		print("x[-1]: ",x[-1])
-		# fmt = mdates.DateFormatter('%H:%M:%S')
+	global x1,y1,x2,y2, lines, line
+	print("Animate(): ",i)
+	x = gps_data[0][0, i]
+	y = gps_data[1][0, i]
+	x1.append(x)
+	y1.append(y)
+
+	x = gps_data[0][1,i]
+	y = gps_data[1][1,i]
+	x2.append(x)
+	y2.append(y)
+
+	xlist = [x1, x2]
+	ylist = [y1, y2]
+
+	# for index in range(0,1):
+	for lnum,line in enumerate(lines):
+		line.set_data(xlist[lnum], ylist[lnum]) # set data for each line separately. 
+	return lines
 
 
-		# x.append(OvenDataObject[1].dateTime[-1])
-		
-		# x.append(i)
-		
-		# print(f"OvenDataObject[1].Temps[i][0]: {y}")
-		# subplot.clear()
-		line.set_data(x,y)  
-		subplot.set_xlim(left=x[0], right=x[-1])
-	except:
-		print("Tried to plot but failed.")
-		startFrame = i
-		
-	return line,
 
 
-anim = animation.FuncAnimation(fig, animate, init_func=init,frames=200, interval=200, blit=True)
+anim = animation.FuncAnimation(fig, animate, init_func=init,frames=200, interval=500, blit=True)
 
 
 
