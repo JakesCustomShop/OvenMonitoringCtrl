@@ -134,6 +134,6 @@ def waitForArduino():
 
 		msg = recvFromArduino(10)
 
-		print (msg)
+		# print (msg)
 		print
 

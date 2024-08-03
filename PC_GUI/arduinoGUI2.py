@@ -823,20 +823,15 @@ def init():
 # Ploting multiple lines:
 # https://stackoverflow.com/questions/67869792/how-to-use-line-set-data-for-data-that-is-a-2-dimensional-array-in-matplotlib
 startFrame = 0
-# y=[]
-# x=[]
 
-# x1,y1 = [],[]
-# x2,y2 = [],[]
-x=[[],[]]
-y=[[],[]]
+# x=[[],[]]
+# y=[[],[]]
 
-# fake data
-frame_num = 100
-gps_data = [-104 - (4 * random.rand(2, frame_num)), 31 + (3 * random.rand(2, frame_num))]
-
-
-
+# Unfortunatly we can use a list of lists as each list is a different length.
+x0 = []
+y0 = []
+x1 = []
+y1 = []
 
 
 # def animate(i):
@@ -873,33 +868,33 @@ gps_data = [-104 - (4 * random.rand(2, frame_num)), 31 + (3 * random.rand(2, fra
 
 
 def animate(i):
-	global x,y, lines, line, OvenDataObject, startFrame, ax1
-	print("Animate(): ",i)
-	# x_temp = gps_data[0][0, i]
-	# y_temp = gps_data[1][0, i]
-	# x[0].append(x_temp)
+	global x1,y1,x0,y0, lines, line, OvenDataObject, startFrame, ax1
 	try:
-		y[0].append(OvenDataObject[1].Temps[-1][0])
-		y[1].append(OvenDataObject[1].Temps[-1][0]+5)
+			
+		# Make the following lines into a loop of sorts.
+		y0.append(OvenDataObject[1].Temps[-1][0])		#append y with the most recent tempeture data.   
+		y1.append(OvenDataObject[2].Temps[-1][0])
 
-		time = datetime.datetime.strptime(OvenDataObject[1].dateTime[-1], "%Y-%m-%d %H:%M:%S")
-		x[0].append(time)
-		print(f"y[0]:", y[0])
-		print(f"y[1]:", y[1])
-		ax1.set_xlim(left=x[0][0], right=x[0][-1])
+		time0 = datetime.datetime.strptime(OvenDataObject[1].dateTime[-1], "%Y-%m-%d %H:%M:%S")
+		time1 = datetime.datetime.strptime(OvenDataObject[2].dateTime[-1], "%Y-%m-%d %H:%M:%S")
+		x0.append(time0)
+		x1.append(time1)
+		ax1.set_xlim(left=x0[0], right=x0[-1])
+
+		enumerate(lines)
+		lines[0].set_data(x0,y0)
+		lines[1].set_data(x1,y1)
+		
 	except:
 		print("Waiting for data")
 
-	x_temp = gps_data[0][1,i]
-	y_temp = gps_data[1][1,i]
-	# x[1].append(x_temp)
-	# y[1].append(y_temp)
-	xlist = [x[0], x[0]]
-	ylist = [y[0], y[1]]
+
+	# xlist = [x[0], x[1]]
+	# ylist = [y[0], y[1]]
 
 	# for index in range(0,1):
-	for lnum,line in enumerate(lines):
-		line.set_data(xlist[lnum], ylist[lnum]) # set data for each line separately. 
+	# for lnum,line in enumerate(lines):
+	# 	line.set_data(xlist[lnum], ylist[lnum]) # set data for each line separately. 
 
 
 	return lines
