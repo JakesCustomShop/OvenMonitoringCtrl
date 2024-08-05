@@ -116,7 +116,7 @@ def setupView():
 def read_config():
 	global file_name, test_dur, sample_frequency, col_header, row_header, config_location
 	config = configparser.RawConfigParser()
-	print(config_location)
+	if (debug): print(config_location)
 	try:      #check if a config file exists & has the correct sections.
 		config.read(config_location)
 		GV.dir_name = config.get('File', 'dir')
@@ -452,7 +452,7 @@ def build_table(masterframe):
 	for num in range(1,9):
 		table.column('temp{}'.format(num),width=75)
 		table.heading('temp{}'.format(num), text=col_header[num-1], command=lambda c=num: col_header_callback(c-1))
-		print(col_header[num-1])
+		# print(col_header[num-1])
 
 	# Insert some data into the table
 	for num in range(0,num_rows):
@@ -467,11 +467,11 @@ def build_table(masterframe):
 def row_header_callback(event):
 	
 	global row_header, table
-	print(row_header)
+	# print(row_header)
 	item = table.identify_region(event.x, event.y)
 	col = table.identify_column(event.x)
 	row = table.identify_row(event.y)
-	print(f"row: {row}")
+	# print(f"row: {row}")
 	row = int(row)
 
 	
@@ -615,7 +615,7 @@ def checkForData():
 	while threadRun == True:
 		dataInput = aC.recvFromArduino(0.1)
 		dataInput = np.fromstring(dataInput, dtype=int, sep=',')
-		print(dataInput)
+		if debug: print(dataInput)
 		if str(dataInput) == "<<" or str(dataInput) == ">>":
 			dataInput = "nothing"
 			print ("DataInput %s" %(dataInput))
@@ -724,15 +724,6 @@ def processData(dataRecvd):
 
 	
 
-	
-
-
-
-
-
-
-	
-
 #======================
 
 def listenForData():
@@ -824,70 +815,32 @@ def init():
 # https://stackoverflow.com/questions/67869792/how-to-use-line-set-data-for-data-that-is-a-2-dimensional-array-in-matplotlib
 startFrame = 0
 
-# x=[[],[]]
-# y=[[],[]]
-
-# Unfortunatly we can use a list of lists as each list is a different length.
-x0 = []
-y0 = []
-x1 = []
-y1 = []
-
-
-# def animate(i):
-# 	global OvenDataObject, startFrame, y, ax1, x
-	
-# 	print(f"Animate()")
-		
-# 	try:
-# 		y.append(OvenDataObject[1].Temps[-1][0])
-		
-		
-# 		time = datetime.datetime.strptime(OvenDataObject[1].dateTime[-1], "%Y-%m-%d %H:%M:%S")
-# 		# print("time: ", time)
-# 		# print("time type: ", type(time))
-# 		x.append(time)
-# 		# print("x[-1]: ",x[-1])
-# 		# fmt = mdates.DateFormatter('%H:%M:%S')
-
-
-# 		# lines = ax1.plot(np.empty((0, y.shape[1])), np.empty((0, y.shape[1])), lw=2)#temporary for testing
-# 		# for line_k, y_k in zip(line, y):
-# 			# line_k.set_data(x[:i],y_k[:i])  
-# 		line.set_data(x,y)
-		
-		
-# 		ax1.set_xlim(left=x[0], right=x[-1])
-# 		plt.draw()
-# 		plt.ion()
-# 	except:
-# 		print("Tried to plot but failed.")
-# 		startFrame = i
-		
-# 	return line,
-
+x=[[],[]]
+y=[[],[]]
 
 def animate(i):
-	global x1,y1,x0,y0, lines, line, OvenDataObject, startFrame, ax1
-	try:
+	global x,y, lines, line, OvenDataObject, startFrame, ax1
+	if debug: print(f"Animate  ", i)
+	
+	try:		
+	# Ensure that we keep the lists the same length.
+		if(OvenDataObject[1].Temps[0][0] & OvenDataObject[2].Temps[0][0]):
+			y[0].append(OvenDataObject[1].Temps[-1][0])		#append y with the most recent tempeture data.   
+			y[1].append(OvenDataObject[2].Temps[-1][0])
+			time0 = datetime.datetime.strptime(OvenDataObject[1].dateTime[-1], "%Y-%m-%d %H:%M:%S")
+			time1 = datetime.datetime.strptime(OvenDataObject[2].dateTime[-1], "%Y-%m-%d %H:%M:%S")
+			x[0].append(time0)
+			x[1].append(time1)
+			enumerate(lines)
+			lines[0].set_data(x[0],y[0])
+			lines[1].set_data(x[1],y[1])
+			ax1.set_xlim(left=x[0][0], right=x[0][-1])
 			
-		# Make the following lines into a loop of sorts.
-		y0.append(OvenDataObject[1].Temps[-1][0])		#append y with the most recent tempeture data.   
-		y1.append(OvenDataObject[2].Temps[-1][0])
-
-		time0 = datetime.datetime.strptime(OvenDataObject[1].dateTime[-1], "%Y-%m-%d %H:%M:%S")
-		time1 = datetime.datetime.strptime(OvenDataObject[2].dateTime[-1], "%Y-%m-%d %H:%M:%S")
-		x0.append(time0)
-		x1.append(time1)
-		ax1.set_xlim(left=x0[0], right=x0[-1])
-
-		enumerate(lines)
-		lines[0].set_data(x0,y0)
-		lines[1].set_data(x1,y1)
-		
 	except:
 		print("Waiting for data")
 
+	print(f"y(0)", y[0])
+	print(f"y(1)", y[1])
 
 	# xlist = [x[0], x[1]]
 	# ylist = [y[0], y[1]]
@@ -901,7 +854,7 @@ def animate(i):
 
 
 
-anim = animation.FuncAnimation(fig, animate, init_func=init,frames=200, interval=500, blit=True)
+anim = animation.FuncAnimation(fig, animate, init_func=init,frames=200, interval=500, blit=False)
 
 
 
