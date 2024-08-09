@@ -815,8 +815,8 @@ def init():
 # https://stackoverflow.com/questions/67869792/how-to-use-line-set-data-for-data-that-is-a-2-dimensional-array-in-matplotlib
 startFrame = 0
 
-x=[[],[]]
-y=[[],[]]
+x=[[],[],[],[],[],[],[],[]]
+y=[[],[],[],[],[],[],[],[]]
 
 def animate(i):
 	global x,y, lines, line, OvenDataObject, startFrame, ax1
@@ -842,8 +842,6 @@ def animate(i):
 	print(f"y(0)", y[0])
 	print(f"y(1)", y[1])
 
-	# xlist = [x[0], x[1]]
-	# ylist = [y[0], y[1]]
 
 	# for index in range(0,1):
 	# for lnum,line in enumerate(lines):
