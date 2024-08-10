@@ -824,7 +824,7 @@ def animate(i):
 	
 	try:		
 	# Ensure that we keep the lists the same length.
-		if(OvenDataObject[1].Temps[0][0] & OvenDataObject[2].Temps[0][0]):
+		if(OvenDataObject[1].Temps[0][0] and OvenDataObject[2].Temps[0][0]):
 			y[0].append(OvenDataObject[1].Temps[-1][0])		#append y with the most recent tempeture data.   
 			y[1].append(OvenDataObject[2].Temps[-1][0])
 			time0 = datetime.datetime.strptime(OvenDataObject[1].dateTime[-1], "%Y-%m-%d %H:%M:%S")
@@ -834,7 +834,7 @@ def animate(i):
 			enumerate(lines)
 			lines[0].set_data(x[0],y[0])
 			lines[1].set_data(x[1],y[1])
-			ax1.set_xlim(left=x[0][0], right=x[0][-1])
+			ax1.set_xlim(left=x[0][0], right=x[0][-1])		#Causes an error on the first interation due to values being the same.
 			
 	except:
 		print("Waiting for data")
