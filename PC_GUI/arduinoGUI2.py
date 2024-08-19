@@ -41,6 +41,12 @@ debug = GV.debug
 col_header = GV.col_header
 row_header = GV.row_header
 num_rows = GV.num_rows
+darkMode = GV.darkMode
+
+if darkMode:
+	# bgColor = "#181818"
+	bgColor = "#1f1f1f"
+	fgColor = "lightgray"
 
 user_comment = GV.user_comment
 
@@ -109,6 +115,7 @@ def setupView():
 	global masterframe
 	masterframe = tk.Frame()
 	masterframe.pack()
+	
 	
 	selectPort()
 
@@ -293,7 +300,7 @@ def mainScreen():
 		child.destroy()
 		
 	tkArd.geometry("1000x600")		#Set the Width and Height of the mainScreen
-
+	if darkMode:masterframe.config(background=bgColor,bg=bgColor)
 	# BuildPlotWindow()
 	
 	
@@ -304,7 +311,7 @@ def mainScreen():
 	read_config()
 	dir_name_text = StringVar()
 	dir_name_text.set(GV.dir_name)
-	dir_name_label = tk.Label(masterframe, textvariable = dir_name_text)
+	dir_name_label = tk.Label(masterframe, textvariable = dir_name_text, bg=bgColor, fg=fgColor)
 	
 	dir_name_text.set(GV.dir_name)
 	masterframe.update_idletasks()
@@ -315,29 +322,29 @@ def mainScreen():
 
 	#data file name
 	################################################
-	file_name_label = tk.Label(masterframe, text="File Name:", justify=RIGHT,anchor=E)
+	file_name_label = tk.Label(masterframe, text="File Name:", justify=RIGHT,anchor=E,bg=bgColor, fg=fgColor)
 	entry_file_name = tk.Entry(masterframe, bg='white', textvariable=file_name)
 	#entry_file_name.insert(0, "Enter file name here...")
 	entry_file_name.insert(0, file_name)
 
 	################################################
-	label_user_comment = tk.Label(masterframe, text="User Comment: ")
+	label_user_comment = tk.Label(masterframe, text="User Comment: ", bg=bgColor, fg=fgColor)
 	entry_user_comment = tk.Entry(masterframe, bg='white', textvariable=user_comment)
 	################################################s
 	
 	save_config_button = tk.Button(masterframe, text="Save current Configuration", command=save_config, bg='green', fg='white', font=('helvetica', 12, 'bold'))
 	
-	JCS_com_button= tk.Button(masterframe, text="Jake's Custom Shop, LLC", command=open_JCS_com, bd=0, fg='black', font=('helvetica', 10, 'underline'), justify='left')
-	support_button = tk.Button(masterframe, text="Support", command=open_support_link, bd=0, fg='black', font=('helvetica', 10, 'underline'), justify='right')
+	JCS_com_button= tk.Button(masterframe, text="Jake's Custom Shop, LLC", command=open_JCS_com, bd=0, font=('helvetica', 10, 'underline'), justify='left' , bg=bgColor, fg=fgColor)
+	support_button = tk.Button(masterframe, text="Support", command=open_support_link, bd=0, font=('helvetica', 10, 'underline'), justify='right', bg=bgColor, fg=fgColor)
 
 	
 	#File save dir
 
-	SpacerA = tk.Label(masterframe, width = 5, height = 2) 
-	SpacerB = tk.Label(masterframe, width = 5, height = 2) 
-	SpacerC = tk.Label(masterframe, width = 5, height = 2) 
-	SpacerD = tk.Label(masterframe, width = 5, height = 2) 
-	error_label = tk.Label(masterframe, textvariable = error_msg) 
+	SpacerA = tk.Label(masterframe, width = 5, height = 2, bg=bgColor) 
+	SpacerB = tk.Label(masterframe, width = 5, height = 2, bg=bgColor) 
+	SpacerC = tk.Label(masterframe, width = 5, height = 2, bg=bgColor) 
+	SpacerD = tk.Label(masterframe, width = 5, height = 2, bg=bgColor) 
+	error_label = tk.Label(masterframe, textvariable = error_msg, bg=bgColor, fg=fgColor) 
 	
 	 
 	SpacerA.grid(row = 0, column = 5, columnspan=5)
@@ -437,6 +444,11 @@ def build_table(masterframe):
 	#Table row defined here
 	table.grid(row=num_rows,column=1,columnspan = 2, ipadx=10, ipady=num_rows*3)	#Required to show table in masterframe
 	
+	style = ttk.Style(masterframe)
+# set ttk theme to "clam" which support the fieldbackground option
+	# style.theme_use("clam")
+	if darkMode: style.configure("Treeview", background="slategray", fieldbackground="slategray", foreground="white")
+
 	#build the table columns
 	table.column('ovenid', width=75)
 	table.heading('ovenid', text='Oven ID')
@@ -622,11 +634,11 @@ def checkForData():
 		if (dataInput.any()):
 			processData(dataInput)
 			update_row(table,dataInput[0]-1, dataInput)		#Update the table.  col 0 is the row number 	
-			# animate()
+			
 			
 
 			
-		time.sleep(checkDelay)
+		# time.sleep(checkDelay)
 
 		#Check each of the OvenDataObjects for a change to Acknowledged Status Byte.  Also check
 		#and save data to a fresh .csv file.
@@ -704,7 +716,7 @@ system_status_list = [
 
 
 
-
+dataRecvdErrorCount = 0
 #======================
 # takes an array of data and assigns to the OvenDataObject with a matching Oven ID
 def processData(dataRecvd):
@@ -720,7 +732,11 @@ def processData(dataRecvd):
 		OvenDataObject[OvenID].append_dateTime(now.strftime("%Y-%m-%d %H:%M:%S"))
 		OvenDataObject[OvenID].append_Status(dataRecvd[10])
 	except: 
-		print("Error recieving data")
+		print("\nError recieving data")
+		print(f"dataRecvd: ", dataRecvd)
+		print(now.strftime("%Y-%m-%d %H:%M:%S"))
+		dataRecvdErrorCount=dataRecvdErrorCount+1
+		print(f"dataRecvdErrorCount: ",dataRecvdErrorCount )
 
 	
 
@@ -746,6 +762,11 @@ def update_row(table, row_index, new_values):
 	if (debug):
 		print("Updating Table")
 	new_values = list(new_values)
+	if (new_values[0] > 9): 		#on rare ocasion when we recieve a bad oven number.  IDK why this happens.. 
+		print("Oven number out of range")
+		print(f"new_values: ", new_values)
+		if debug: quit()		#terminate the program so I can debug.
+		return
 	new_values[0] = row_header[new_values[0]-1]		#replace the oven num (stored in new_values[0]) with row_header.  Subtract 1 from Oven number 
 	table.item(table.get_children()[row_index], values=new_values)
 	
@@ -776,18 +797,16 @@ plt.rcParams["figure.autolayout"] = True
 plotWin = tk.Tk()
 plotWin.wm_title("Embedding in Tk")
 
-# plt.axes(ylim=(0,255))
-# fig = plt.Figure(dpi=100)
-# ax1 = fig.add_subplot(xlim=(0,10), ylim=(0, 255))
+
 fig = plt.figure()
-# ax1 = plt.axes(xlim=(-108, -104), ylim=(31,34))
 ax1 = plt.axes(ylim=(0,255))
 line, = ax1.plot([],[],lw=2)
 
-plotlays, plotcols = [2], ["black","red"]
+plotlays, plotcols = [2], ["black","red","orange","olive","green","blue","purple","pink"]
+if darkMode: ax1.set_facecolor('xkcd:gray')
 lines = []
-for index in range(2):
-	lobj = ax1.plot([],[],lw=2, color=plotcols[index])[0]
+for index in range(8):
+	lobj = ax1.plot([],[],[],[],[],[],[],[],lw=2, color=plotcols[index])[0]
 	lines.append(lobj)
 
 # line, = ax1.plot([], [], lw=2)
@@ -823,25 +842,23 @@ def animate(i):
 	if debug: print(f"Animate  ", i)
 	
 	try:		
-	# Ensure that we keep the lists the same length.
-		if(OvenDataObject[1].Temps[0][0] and OvenDataObject[2].Temps[0][0]):
-			y[0].append(OvenDataObject[1].Temps[-1][0])		#append y with the most recent tempeture data.   
-			y[1].append(OvenDataObject[2].Temps[-1][0])
-			time0 = datetime.datetime.strptime(OvenDataObject[1].dateTime[-1], "%Y-%m-%d %H:%M:%S")
-			time1 = datetime.datetime.strptime(OvenDataObject[2].dateTime[-1], "%Y-%m-%d %H:%M:%S")
-			x[0].append(time0)
-			x[1].append(time1)
-			enumerate(lines)
-			lines[0].set_data(x[0],y[0])
-			lines[1].set_data(x[1],y[1])
-			ax1.set_xlim(left=x[0][0], right=x[0][-1])		#Causes an error on the first interation due to values being the same.
+		for j in range(0,8):
+			if(OvenDataObject[j+1].Temps[0][0]):		#Ensure that we keep the lists the same length.
+				y[j].append(0)							#Append each list of y with an empty cell incase ovenData.Temps is blank.
+				y[j][-1] = (OvenDataObject[j+1].Temps[-1][0])	#Fill in the empty cell with most recent temperature data.
+				x[j].append(0)							#append each list of x with an empty cell
+				x[j][-1] = datetime.datetime.strptime(OvenDataObject[j+1].dateTime[-1], "%Y-%m-%d %H:%M:%S")
+				enumerate(lines)
+				lines[j].set_data(x[j],y[j])
+				ax1.set_xlim(left=x[0][0], right=x[0][-1])		#Causes an error on the first interation due to values being the same.
+				# print(f"y(0)", y[0])
+				# print(f"y(1)", y[1])
+
 			
 	except:
-		print("Waiting for data")
-
-	print(f"y(0)", y[0])
-	print(f"y(1)", y[1])
-
+		# print("Ploting Error")
+		# print(f"j: ", j)
+		True
 
 	# for index in range(0,1):
 	# for lnum,line in enumerate(lines):
