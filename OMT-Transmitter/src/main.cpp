@@ -36,6 +36,8 @@
 /*
 TODO:
  - Do somthing about conveyor oven having 2 puchbuttons
+  - Implement a responce back to the .py for automatic error checking of param setting.
+ - Make sure parameter saving still works.
 
   Necessary Changes for implemention
    - Set TC_CAL to use tenths of a degree.  This will be a decent project as all temperature data is in integers
@@ -76,9 +78,10 @@ SM_8relay eight_relay_card2 = SM_8relay() ; //Eight Relays HAT with stack level 
 SM_8relay eight_relay_card3 = SM_8relay();  //Eight Relays HAT with stack level 3 
 
 
-//int debug = 0;  //Turns off addational serial print fuctions.
-int debug = 1;    //Basic Debuging.  Enables random numbers for Tempeture values if TC hat is not detected.
-bool TC_Check;    //Check to see if the Sequent TC hat exists.
+int debug = 0;  //Turns off addational serial print fuctions.
+// int debug = 1;    //Basic Debuging.
+bool debug2 = 0; //Startup Delays, 
+bool TC_Check;    //Check to see if the Sequent TC hat exists.  If FALSE, then enable random number TC value generation
 int status[8] = {0,0,0,0,0,0,0,0};      //Status byte for each oven.
 int prev_status[8] = {1,1,1,1,1,1,1,1}; //Previous status for determinging when to update a stack light. Anything except STARTUP?
 int cycleNum[8]= {0,0,0,0,0,0,0,0};     //Cycle counter for each oven.  
@@ -265,6 +268,33 @@ void readParameterFile(fs::FS &fs, const char * path){
   file.close();
 }
 
+/*
+@brief Formats Configuration values into a string, then writes them to the SD Card
+@param none
+*/
+void saveParametersToSD(){
+  String parameters = "";
+  parameters += "ovenID: " + String(ovenID.Value()) + "\n";
+  myData.OvenID = ovenID.Value();     //Please fix this
+  parameters += "temperatureSetpoint: " + String(temperatureSetpoint.Value()) + "\n";
+  parameters += "cookTime: " + String(cookTime.Value()) + "\n";
+  parameters += "dataIntervalTime: " + String(dataIntervalTime.Value()) + "\n";
+  parameters += "numTCperOven: " + String(numTCperOven.Value()) + "\n";
+  parameters += "numOvens: " + String(numOvens.Value()) + "\n";
+  parameters += "buzzerMode: " + String(buzzerMode.Value()) + "\n";
+  parameters += "tcOffset1: " + String(TC_Offsets[1]) + "\n";       //saved as 10x value to preserve decimal precision
+  parameters += "tcOffset2: " + String(TC_Offsets[2]) + "\n";
+  parameters += "tcOffset3: " + String(TC_Offsets[3]) + "\n";
+  parameters += "tcOffset4: " + String(TC_Offsets[4]) + "\n";
+  parameters += "tcOffset5: " + String(TC_Offsets[5]) + "\n";
+  parameters += "tcOffset6: " + String(TC_Offsets[6]) + "\n";
+  parameters += "tcOffset7: " + String(TC_Offsets[7]) + "\n";
+  parameters += "tcOffset8: " + String(TC_Offsets[8]) + "\n";
+  // parameters += "cycleNum: " + String(cycleNum.Value()) + "\n";
+  Serial.print(parameters); 
+  writeFile(SD, "/parameters.txt", parameters);
+  readParameterFile(SD, "/parameters.txt");
+}
 
 
 /*
@@ -654,27 +684,7 @@ void displayMenuOption() {
         break;
       case SAVE_PARAM:
         tc_cali_mode.setValue(0);     //Reset the calibration mode value
-        String parameters = "";
-        parameters += "ovenID: " + String(ovenID.Value()) + "\n";
-        myData.OvenID = ovenID.Value();     //Please fix this
-        parameters += "temperatureSetpoint: " + String(temperatureSetpoint.Value()) + "\n";
-        parameters += "cookTime: " + String(cookTime.Value()) + "\n";
-        parameters += "dataIntervalTime: " + String(dataIntervalTime.Value()) + "\n";
-        parameters += "numTCperOven: " + String(numTCperOven.Value()) + "\n";
-        parameters += "numOvens: " + String(numOvens.Value()) + "\n";
-        parameters += "buzzerMode: " + String(buzzerMode.Value()) + "\n";
-        parameters += "tcOffset1: " + String(TC_Offsets[1]) + "\n";       //saved as 10x value to preserve decimal precision
-        parameters += "tcOffset2: " + String(TC_Offsets[2]) + "\n";
-        parameters += "tcOffset3: " + String(TC_Offsets[3]) + "\n";
-        parameters += "tcOffset4: " + String(TC_Offsets[4]) + "\n";
-        parameters += "tcOffset5: " + String(TC_Offsets[5]) + "\n";
-        parameters += "tcOffset6: " + String(TC_Offsets[6]) + "\n";
-        parameters += "tcOffset7: " + String(TC_Offsets[7]) + "\n";
-        parameters += "tcOffset8: " + String(TC_Offsets[8]) + "\n";
-        // parameters += "cycleNum: " + String(cycleNum.Value()) + "\n";
-        Serial.print(parameters); 
-        writeFile(SD, "/parameters.txt", parameters);
-        readParameterFile(SD, "/parameters.txt");
+        saveParametersToSD();
         lcd.setCursor(0, 1);
         currentMenuOption = MenuOption(0);    //Returns to menuOption Home
         displayMenuOption();
@@ -705,6 +715,125 @@ void updateMenuOption() {
 
 
 
+// === Stuff for reading data from PC=== //
+// https://forum.arduino.cc/t/demo-of-arduino-control-with-a-python-gui-program/261844
+byte servoMin = 10;      //This servo stuff can be deleted/ renamed later.  Used for testing .py to ESP comm
+byte servoMax = 170;
+byte servoPos = 0;
+byte newServoPos = servoMin;
+
+const byte numLEDs = 2;
+byte ledPin[numLEDs] = {12, 13};
+byte ledStatus[numLEDs] = {0, 0};
+
+const byte buffSize = 40;
+char inputBuffer[buffSize];
+const char startMarker = '<';
+const char endMarker = '>';
+byte bytesRecvd = 0;
+boolean readInProgress = false;
+boolean newDataFromPC = false;
+
+char messageFromPC[buffSize] = {0};
+
+
+
+
+
+//=============
+/*
+@brief Saves the Py-ESP transmistion to the OMT parameters
+*/
+void parseConfigData() {
+// assumes the data will be received as (eg) 0,1,35
+  char * strtokIndx; // this is used by strtok() as an index
+  
+  strtokIndx = strtok(inputBuffer,","); // get the first part
+  ovenID.setValue(atoi(strtokIndx));    //  convert to an integer 
+  strtokIndx = strtok(NULL, ",");       // this continues where the previous call left off
+  temperatureSetpoint.setValue(atoi(strtokIndx));  
+  strtokIndx = strtok(NULL, ",");    
+  cookTime.setValue(atoi(strtokIndx));
+  strtokIndx = strtok(NULL, ","); 
+  dataIntervalTime.setValue(atoi(strtokIndx));
+  strtokIndx = strtok(NULL, ","); 
+  numTCperOven.setValue(atoi(strtokIndx));
+  strtokIndx = strtok(NULL, ","); 
+  numOvens.setValue(atoi(strtokIndx));
+  strtokIndx = strtok(NULL, ","); 
+  buzzerMode.setValue(atoi(strtokIndx));
+  strtokIndx = strtok(NULL, ","); 
+  // TC_Offsets[1] = atoi(strtokIndx);
+  // strtokIndx = strtok(NULL, ","); 
+  // TC_Offsets[2] = atoi(strtokIndx);
+  // strtokIndx = strtok(NULL, ","); 
+  // TC_Offsets[3] = atoi(strtokIndx);
+  // strtokIndx = strtok(NULL, ","); 
+  // TC_Offsets[4] = atoi(strtokIndx);
+  // strtokIndx = strtok(NULL, ","); 
+  // TC_Offsets[5] = atoi(strtokIndx);
+  // strtokIndx = strtok(NULL, ","); 
+  // TC_Offsets[6] = atoi(strtokIndx);
+  // strtokIndx = strtok(NULL, ","); 
+  // TC_Offsets[7] = atoi(strtokIndx);
+  // strtokIndx = strtok(NULL, ","); 
+  // TC_Offsets[8] = atoi(strtokIndx);
+
+  // cycleNum.SetValue(atoi(strtokIndx));
+  ledStatus[0] = ovenID.Value()-1;    //Temporay for testing.
+  Serial.print("numOvens.Value(): ");
+  Serial.println(numOvens.Value());       //Simple check that the data was transmitted and recieved correctly.
+  //Implement a responce back to the .py for automatic error checking
+
+  saveParametersToSD();   //Save the new parameters to the SD card.
+}
+
+// Temporary for checking serial data com from ESP to Python.
+void replyToPC() {
+  if (newDataFromPC) {
+    newDataFromPC = false;
+    Serial.print("<LedA, ");
+    Serial.print(ledStatus[0]);
+    Serial.print(", LedB, ");
+    Serial.print(ledStatus[1]);
+    Serial.print(", SrvPos, ");
+    Serial.print(newServoPos);
+    Serial.print(", Time, ");
+    Serial.print(millis() >> 9); // divide by 512 is approx = half-seconds
+    Serial.println(">");
+  }
+}
+
+/*
+@brief receives data from PC and saves it into inputBuffer
+*/
+void getDataFromPC() {    
+  // Serial.println("<In getDataFromPC>");
+  if(Serial.available() > 0) {
+    if(debug){Serial.println("<Serial.available>");}
+    char x = Serial.read();
+    // the order of these IF clauses is significant
+    if (x == endMarker) {
+      readInProgress = false;
+      newDataFromPC = true;
+      inputBuffer[bytesRecvd] = 0;
+      parseConfigData();
+      replyToPC();    //Send some data back to the python script. 
+    }
+    if(readInProgress) {
+      inputBuffer[bytesRecvd] = x;
+      bytesRecvd ++;
+      if (bytesRecvd == buffSize) {
+        bytesRecvd = buffSize - 1;
+      }
+    }
+
+    if (x == startMarker) { 
+      bytesRecvd = 0; 
+      readInProgress = true;
+    }
+  }
+}
 
 
 
@@ -739,7 +868,7 @@ void setup() {
   delay(200);
   lcd.setCursor(0, 3);    
   lcd.print("Version 1.2");
-  delay(2500);
+  if (debug2) (2500);
   lcd.clear();
 
   //===SD Card Stuff==//
@@ -747,14 +876,14 @@ void setup() {
     Serial.println("Card Mount Failed");
     lcd.setCursor(0, 0);    //Column, Row
     lcd.print("Card Mount Failed");           //Clear the remaining time.
-    delay(3000);
+    if (debug2) delay(3000);
   }
   uint8_t cardType = SD.cardType();
   if(cardType == CARD_NONE){
     Serial.println("No SD card attached");
     lcd.setCursor(0, 1);    //Column, Row
     lcd.print("No SD card attached");           //Clear the remaining time.
-    delay(3000);
+    if (debug2) delay(3000);
   }
   
   //Reads the parameter file on the SD card.
@@ -789,7 +918,7 @@ void setup() {
     Serial.print("Eight Relays Card NOT detected!\n");
     lcd.setCursor(0, 3);    //Column, Row
     lcd.print("8Relay card 2 Error");           //Clear the remaining time.
-    delay(3000);
+    if (debug2) delay(3000);
     Use8RelayCard = false;
   }
   //===8Relay stack level 3===//
@@ -803,7 +932,7 @@ void setup() {
     Serial.print("Eight Relays Card NOT detected!\n");
     lcd.setCursor(0, 3);    //Column, Row
     lcd.print("8Relay card 3 Error");           //Clear the remaining time.
-    delay(3000);
+    if (debug2) delay(3000);
   }
 
   // Init ESP-NOW
@@ -843,7 +972,7 @@ void setup() {
     Serial.print("TC HAT NOT detected!\n");
     lcd.setCursor(0, 2);    //Column, Row
     lcd.print("TC HAT NOT detected!");           //Clear the remaining time.
-    delay(3000);
+    if (debug2) delay(3000);
     TC_Check=false;
     dataIntervalTime.setValue(1);
   }
@@ -868,9 +997,24 @@ void setup() {
     Display4Temps(i);
   }
 
+  // for debugging of Python to ESP data transmission.
+  if(!TC_Check){    //If the TC card is not detected, assume I am debugging with a esp32doit-devkit-v1
+    pinMode(ledPin[0], OUTPUT);
+    pinMode(ledPin[1], OUTPUT);
+    digitalWrite(ledPin[0], HIGH);
+    digitalWrite(ledPin[1], HIGH);
+    delay(1000);
+    digitalWrite(ledPin[0], LOW);
+    digitalWrite(ledPin[1], LOW);
+  }
 }
 
 
+// For debugging.  Only called if TC_check is false
+void updateLEDs(){
+  digitalWrite(ledPin[0], ledStatus[0]);
+  digitalWrite(ledPin[1], ledStatus[1]);
+}
  
 
 
@@ -975,8 +1119,8 @@ void loop() {
       myData.Status = status[j];
       // Send message via ESP-NOW
       esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
-      if (result == ESP_OK)
-        Serial.println("Sent with success");
+      if (result == ESP_OK && debug)
+        Serial.println("Sent with success using ESP-Now");
       else
         Serial.println("Error sending the data");
       dataIntervalTimer.startTimer(dataIntervalTime.Value()*1000);   //Restart the timer
@@ -997,6 +1141,7 @@ void loop() {
   } //Data Send interval 
   
   
+  
   //Check each oven to see if the status has been updated.
   //Status == TIME_COMPLETE blinks the GRN light and thus requries more calls to mangeSatckLight().
   for (int j = 0; j< numOvens.Value(); j++){
@@ -1009,5 +1154,14 @@ void loop() {
   displayMenuOption();              //Display the current menu option on the LCD screen. Updates countdown timer. And Displays temperature
   updateMenuOption();               // Update the current menu option
   updateMenuValue();                // Update the menu value based on the current menu option and the rotary encoder
-}   //Continuous Loop As Fast As Possible
+
+  // Check for data seny from python to ESP-32
+  getDataFromPC();
+  updateLEDs();
   
+
+}   //Continuous Loop As Fast As Possible
+
+
+
+

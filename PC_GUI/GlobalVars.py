@@ -15,8 +15,8 @@ row_header = [" "]*num_rows
 global user_comment
 user_comment = "User Comment"
 
-debug = 0   #Debug mode off.
-# debug = 1   #Print Statments
+# debug = 0   #Debug mode off.
+debug = 1   #Print Statments
 #debug = 2  #skips datacollection.  Create a datafile with header only
 
 

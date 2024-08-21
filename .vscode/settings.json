@@ -8,5 +8,8 @@
         "ios": "cpp",
         "system_error": "cpp",
         "xiosbase": "cpp"
-    }
+    },
+    "cSpell.words": [
+        "Recvd"
+    ]
 }

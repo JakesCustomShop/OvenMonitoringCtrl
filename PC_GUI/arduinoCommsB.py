@@ -5,6 +5,14 @@ import sys
 import glob
 
 
+
+# =======================
+# Source: https://forum.arduino.cc/t/demo-of-arduino-control-with-a-python-gui-program/261844
+# Modified by Jake Lehotsky, Jake's Custom Shop, LLC
+# August 8, 2024
+# 
+#========================
+
 # global variables for module
 startMarker = 60
 endMarker = 62

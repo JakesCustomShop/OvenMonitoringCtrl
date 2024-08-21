@@ -38,6 +38,7 @@ from numpy import random #Can be deleted after multi-line ploting is working
 #Import custom Global Variables
 import GlobalVars as GV
 debug = GV.debug
+debug2 = 0		#addational print statments
 col_header = GV.col_header
 row_header = GV.row_header
 num_rows = GV.num_rows
@@ -54,32 +55,32 @@ user_comment = GV.user_comment
 #TODO:
 #PC GUI software updates: 
 # 1) User Modifiable channel headings ✓ and Oven Names ✓.
-# 2) Data graphing.
+# 2) Data graphing.											✓
 # 3) User Comment field in data file.						✓
 # 4) Data file naming										✓ 
-# 5) Defult file-save directory saved between restarts.		✓
-# 6) Udate HW settings from PC GUI
+# 5) Default file-save directory saved between restarts.	✓
+# 6) Update HW settings from PC GUI
 # 7) Add user comment field to each row/ Column
-# 8) Why can't rows_headers be edited for rows above 10?  Becasue its a hexadecimal value lol.
+# 8) Why can't rows_headers be edited for rows above 10?  Because its a hexadecimal value lol.
 
+# Add Sample count to .csv file
+# Divide table values by 10 so that the temperature data is accurate!		✓
 
 
 #=========================
-#System Defults:
+#System Defaults:
 
 config_location = Path('C:\JCS\OvenMonitorTime\param_config.ini')
 sample_count = 0     #counts each time the machine is ran.  Used for incrementing file names
 Path(GV.dir_name).mkdir(parents=True, exist_ok=True)     # set the config file location
 
-#Defualt information saved in the param_config.ini file.  If the .ini is missing or
+#Default information saved in the param_config.ini file.  If the .ini is missing or
 #Not written correctly, the old one will be overwritten with these values
 file_name = 'TestData'      
-test_dur = 2                            #Test Durration in seconds
+test_dur = 2                            #Test Duration in seconds
 sample_frequency = 100                  #Sample Frequency in Hz
 
 
-#TODO
-#Add Sample count to .csv file
 
 #=========================
 #  code to ensure a clean exit
@@ -170,7 +171,18 @@ def read_config():
 
 #Save Configuration
 #Pulls values directly from tkinter GUI
+
 def save_config():  
+	global ledAstatus
+	# Testing of Python to Arduino Data Communication.
+	# aC.valToArduino(ledAstatus,1,52)		#Send some data to the arduino
+	aC.sendToArduino("2,25,2,1,2,4,1")
+	if ledAstatus:ledAstatus=0
+	else:ledAstatus=1 						#flip the LED status for the next button press
+
+
+
+
 	if debug:print("Updating Config File")
 	global error_msg, entry_file_name, file_name,  sample_count, config, user_comment, num_rows
 
@@ -295,7 +307,7 @@ def selectPort():
 #======================
 # definition of main screen to control Arduino
 def mainScreen():
-	global masterframe, dir_name_text, error_msg, entry_file_name, entry_user_comment, fig, ani, ax1
+	global masterframe, dir_name_text, error_msg, entry_file_name, entry_user_comment, fig, ax1
 	for child in masterframe.winfo_children():
 		child.destroy()
 		
@@ -386,7 +398,7 @@ def open_JCS_com():
 	
 #=========================
 # various callback functions
-	
+ledAstatus = 0
 def btnA(btn):
 	global ledAstatus, ledBstatus, servoPos
 	
@@ -621,11 +633,12 @@ OvenDataObject = [0, DataClass(),DataClass(),DataClass(),DataClass(),DataClass()
 
 
 def checkForData():
-	global threadRun, checkDelay,  error_msg, ani, table
+	global threadRun, checkDelay,  error_msg, table, OvenDataObject
 	print ("Starting to Listen")
 	oldDataInput = "waiting"
 	while threadRun == True:
 		dataInput = aC.recvFromArduino(0.1)
+		print(f"dataInput: ",dataInput)
 		dataInput = np.fromstring(dataInput, dtype=int, sep=',')
 		if debug: print(dataInput)
 		if str(dataInput) == "<<" or str(dataInput) == ">>":
@@ -633,7 +646,7 @@ def checkForData():
 			print ("DataInput %s" %(dataInput))
 		if (dataInput.any()):
 			processData(dataInput)
-			update_row(table,dataInput[0]-1, dataInput)		#Update the table.  col 0 is the row number 	
+			update_row(table,dataInput[0])		#Update the table.  col 0 is the row number 	
 			
 			
 
@@ -720,19 +733,19 @@ dataRecvdErrorCount = 0
 #======================
 # takes an array of data and assigns to the OvenDataObject with a matching Oven ID
 def processData(dataRecvd):
-	global displayVal, OvenDataObject
+	global displayVal, OvenDataObject, dataRecvdErrorCount
 	displayVal.set(dataRecvd)
 	now = datetime.datetime.now()	# Get the current date and time
 	try: 
 		OvenID = dataRecvd[0]	
-		#Asign dataRecvd cells to appropriate locations in OvenDataObject
+		#Assign dataRecvd cells to appropriate locations in OvenDataObject
 		OvenDataObject[OvenID].OvenID = OvenID
 		OvenDataObject[OvenID].append_Count(dataRecvd[1])
-		OvenDataObject[OvenID].append_Temps([dataRecvd[2], dataRecvd[3], dataRecvd[4], dataRecvd[5],dataRecvd[6], dataRecvd[7], dataRecvd[8], dataRecvd[9]])
+		OvenDataObject[OvenID].append_Temps([dataRecvd[2]/10, dataRecvd[3]/10, dataRecvd[4]/10, dataRecvd[5]/10,dataRecvd[6]/10, dataRecvd[7]/10, dataRecvd[8]/10, dataRecvd[9]/10])
 		OvenDataObject[OvenID].append_dateTime(now.strftime("%Y-%m-%d %H:%M:%S"))
 		OvenDataObject[OvenID].append_Status(dataRecvd[10])
 	except: 
-		print("\nError recieving data")
+		print("\nError receiving data")
 		print(f"dataRecvd: ", dataRecvd)
 		print(now.strftime("%Y-%m-%d %H:%M:%S"))
 		dataRecvdErrorCount=dataRecvdErrorCount+1
@@ -757,22 +770,24 @@ def stopListening():
 
 #============================
 #Update a specified row in a tkinter Tree View Table
-def update_row(table, row_index, new_values):
-	global canvas
+def update_row(table, row_index):
+	global canvas, OvenDataObject
 	if (debug):
 		print("Updating Table")
-	new_values = list(new_values)
-	if (new_values[0] > 9): 		#on rare ocasion when we recieve a bad oven number.  IDK why this happens.. 
+		
+	new_values = [OvenDataObject[row_index].OvenID, OvenDataObject[row_index].Count[-1]]
+	new_values += OvenDataObject[row_index].Temps[-1]										#Append one list to another.
+	new_values.append(OvenDataObject[row_index].Status[-1])
+	print(f"new_values: ",new_values)
+
+	if (new_values[0] > 9): 		#on rare occasion when we receive a bad oven number.  IDK why this happens.. 
 		print("Oven number out of range")
 		print(f"new_values: ", new_values)
 		if debug: quit()		#terminate the program so I can debug.
 		return
-	new_values[0] = row_header[new_values[0]-1]		#replace the oven num (stored in new_values[0]) with row_header.  Subtract 1 from Oven number 
+	new_values[0] = row_header[row_index]		#replace the oven num (stored in new_values[0]) with row_header.  Subtract 1 from Oven number 
 	table.item(table.get_children()[row_index], values=new_values)
 	
-	
-	
-
 
 def buildFileName(oven_id: int) -> str:
   """Builds a string with the OvenID number and today's date time in the format YYYYMMDD-HHMM
@@ -784,8 +799,6 @@ def buildFileName(oven_id: int) -> str:
   date_time = datetime.datetime.today()
   date_time_str = date_time.strftime("%Y%m%d-%H%M%S")
   return f"{oven_id}-{file_name}-{date_time_str}"
-
-
 
 
 
@@ -830,7 +843,7 @@ def init():
 	ax1.xaxis.set_major_formatter(fmt)
 	return lines
 
-# Ploting multiple lines:
+# Plotting multiple lines:
 # https://stackoverflow.com/questions/67869792/how-to-use-line-set-data-for-data-that-is-a-2-dimensional-array-in-matplotlib
 startFrame = 0
 
